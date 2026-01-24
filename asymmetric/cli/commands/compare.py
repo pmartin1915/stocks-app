@@ -164,9 +164,9 @@ def compare(
         client = EdgarClient()
         results = []
 
-        with console.status("[bold blue]Fetching financial data...[/bold blue]"):
+        with console.status("[bold blue]Fetching financial data...[/bold blue]") as status:
             for ticker in tickers:
-                console.status.update(f"[bold blue]Fetching {ticker}...[/bold blue]")
+                status.update(f"[bold blue]Fetching {ticker}...[/bold blue]")
                 result = _calculate_scores(client, ticker)
                 results.append(result)
 

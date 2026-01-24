@@ -221,9 +221,9 @@ def review(ctx: click.Context, refresh: bool) -> None:
     results = {}
     if refresh:
         client = EdgarClient()
-        with console.status("[bold blue]Fetching scores...[/bold blue]"):
+        with console.status("[bold blue]Fetching scores...[/bold blue]") as status:
             for ticker in tickers:
-                console.status.update(f"[bold blue]Fetching {ticker}...[/bold blue]")
+                status.update(f"[bold blue]Fetching {ticker}...[/bold blue]")
                 try:
                     financials = client.get_financials(ticker, periods=2)
                     if financials.get("periods"):
