@@ -1,0 +1,46 @@
+{
+    "AAPL_FY2023": {
+        "piotroski": {
+            "expected_score": 5,
+            "expected_signals": {
+                "positive_roa": true,
+                "positive_cfo": true,
+                "roa_improving": false,
+                "accruals_quality": true,
+                "leverage_decreasing": true,
+                "current_ratio_improving": true,
+                "no_dilution": true,
+                "gross_margin_improving": false,
+                "asset_turnover_improving": false
+            },
+            "expected_interpretation": "Moderate - Mixed signals"
+        },
+        "altman": {
+            "expected_zone": "Safe",
+            "min_z_score": 3.0,
+            "formula": "manufacturing"
+        }
+    },
+    "DISTRESSED_FY2023": {
+        "piotroski": {
+            "expected_score": 0,
+            "expected_signals": {
+                "positive_roa": false,
+                "positive_cfo": false,
+                "roa_improving": false,
+                "accruals_quality": false,
+                "leverage_decreasing": false,
+                "current_ratio_improving": false,
+                "no_dilution": false,
+                "gross_margin_improving": false,
+                "asset_turnover_improving": false
+            },
+            "expected_interpretation": "Weak - Financial concerns"
+        },
+        "altman": {
+            "expected_zone": "Distress",
+            "max_z_score": 1.8,
+            "formula": "manufacturing"
+        }
+    }
+}

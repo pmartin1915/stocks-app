@@ -1,0 +1,184 @@
+"""Database management commands."""
+
+import click
+from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
+from rich.table import Table
+
+from asymmetric.config import config
+from asymmetric.core.data.bulk_manager import BulkDataManager
+from asymmetric.core.data.exceptions import SECRateLimitError, SECEmptyResponseError
+
+
+@click.group()
+def db() -> None:
+    """Database management commands.
+
+    Initialize and manage the local database for bulk SEC data.
+    """
+    pass
+
+
+@db.command()
+@click.pass_context
+def init(ctx: click.Context) -> None:
+    """
+    Initialize the local database.
+
+    Creates the DuckDB database schema for storing bulk SEC data.
+    This is required before running 'db refresh'.
+
+    \b
+    Example:
+        asymmetric db init
+    """
+    console: Console = ctx.obj["console"]
+
+    try:
+        # Ensure directories exist
+        config.ensure_directories()
+
+        with console.status("[bold blue]Initializing database...[/bold blue]"):
+            bulk = BulkDataManager()
+            bulk.initialize_schema()
+            bulk.close()
+
+        console.print("[green]Database initialized successfully![/green]")
+        console.print(f"[dim]Database path: {config.bulk_dir / 'sec_data.duckdb'}[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error initializing database:[/red] {e}")
+        raise SystemExit(1)
+
+
+@db.command()
+@click.option("--full", is_flag=True, help="Force full re-download of bulk data")
+@click.pass_context
+def refresh(ctx: click.Context, full: bool) -> None:
+    """
+    Download/update SEC bulk data.
+
+    Downloads companyfacts.zip from SEC EDGAR for zero-API-call
+    historical queries. File size is approximately 500MB.
+
+    \b
+    Note: This can take several minutes on first run.
+
+    \b
+    Examples:
+        asymmetric db refresh           # Incremental update
+        asymmetric db refresh --full    # Full re-download
+    """
+    console: Console = ctx.obj["console"]
+
+    try:
+        bulk = BulkDataManager()
+        bulk.initialize_schema()
+
+        # Check if we need to refresh
+        stats = bulk.get_stats()
+        if not full and stats.get("last_refresh"):
+            console.print(f"[dim]Last refresh: {stats['last_refresh']}[/dim]")
+
+        if full:
+            console.print("[yellow]Performing full refresh (this may take a while)...[/yellow]")
+        else:
+            console.print("[blue]Checking for updates...[/blue]")
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Downloading bulk data...", total=100)
+
+            def update_progress(pct: int) -> None:
+                progress.update(task, completed=pct)
+                if pct < 10:
+                    progress.update(task, description="Preparing...")
+                elif pct < 50:
+                    progress.update(task, description="Downloading companyfacts.zip...")
+                elif pct < 100:
+                    progress.update(task, description="Importing to database...")
+                else:
+                    progress.update(task, description="Complete!")
+
+            bulk.refresh(full=full, progress_callback=update_progress)
+
+        # Show stats
+        stats = bulk.get_stats()
+        bulk.close()
+
+        console.print()
+        console.print("[green]Bulk data refresh complete![/green]")
+
+        table = Table(show_header=False, box=None)
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value")
+        table.add_row("Companies", f"{stats['ticker_count']:,}")
+        table.add_row("Facts", f"{stats['fact_count']:,}")
+        table.add_row("Database Size", f"{stats['db_size_mb']:.1f} MB")
+        table.add_row("Last Refresh", stats['last_refresh'] or "N/A")
+
+        console.print(table)
+
+    except SECRateLimitError as e:
+        console.print(f"[red]SEC Rate Limit Hit:[/red] {e}")
+        console.print("[yellow]Wait a few minutes and try again.[/yellow]")
+        raise SystemExit(1)
+
+    except SECEmptyResponseError as e:
+        console.print(f"[red]SEC Empty Response:[/red] {e}")
+        console.print("[yellow]The SEC may be throttling requests.[/yellow]")
+        raise SystemExit(1)
+
+    except Exception as e:
+        console.print(f"[red]Error refreshing data:[/red] {e}")
+        raise SystemExit(1)
+
+
+@db.command()
+@click.pass_context
+def stats(ctx: click.Context) -> None:
+    """
+    Show database statistics.
+
+    Displays information about the bulk data cache including
+    number of companies, facts, and last refresh time.
+
+    \b
+    Example:
+        asymmetric db stats
+    """
+    console: Console = ctx.obj["console"]
+
+    try:
+        bulk = BulkDataManager()
+        bulk.initialize_schema()
+        db_stats = bulk.get_stats()
+        bulk.close()
+
+        table = Table(title="Database Statistics", show_header=True)
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green")
+
+        table.add_row("Companies", f"{db_stats['ticker_count']:,}")
+        table.add_row("Financial Facts", f"{db_stats['fact_count']:,}")
+        table.add_row("Database Size", f"{db_stats['db_size_mb']:.1f} MB")
+        table.add_row("Database Path", db_stats['db_path'])
+        table.add_row(
+            "Last Refresh",
+            db_stats['last_refresh'] or "[yellow]Never[/yellow]"
+        )
+
+        console.print(table)
+
+        if db_stats['ticker_count'] == 0:
+            console.print()
+            console.print("[yellow]Database is empty. Run 'asymmetric db refresh' to download data.[/yellow]")
+
+    except Exception as e:
+        console.print(f"[red]Error getting stats:[/red] {e}")
+        raise SystemExit(1)

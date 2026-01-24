@@ -1,0 +1,39 @@
+{
+    "ticker": "DSTR",
+    "cik": "9999999999",
+    "company_name": "Distressed Corp",
+    "fiscal_year": 2023,
+    "fiscal_period": "FY",
+    "current": {
+        "revenue": 10000000,
+        "gross_profit": 1000000,
+        "net_income": -5000000,
+        "total_assets": 50000000,
+        "current_assets": 5000000,
+        "current_liabilities": 20000000,
+        "long_term_debt": 40000000,
+        "total_liabilities": 60000000,
+        "shares_outstanding": 10000000,
+        "operating_cash_flow": -3000000,
+        "retained_earnings": -30000000,
+        "ebit": -4000000,
+        "market_cap": 5000000,
+        "book_equity": -10000000
+    },
+    "prior": {
+        "revenue": 15000000,
+        "gross_profit": 2000000,
+        "net_income": -2000000,
+        "total_assets": 55000000,
+        "current_assets": 8000000,
+        "current_liabilities": 18000000,
+        "long_term_debt": 35000000,
+        "total_liabilities": 53000000,
+        "shares_outstanding": 8000000,
+        "operating_cash_flow": -1000000,
+        "retained_earnings": -25000000,
+        "ebit": -1000000,
+        "market_cap": 10000000,
+        "book_equity": 2000000
+    }
+}

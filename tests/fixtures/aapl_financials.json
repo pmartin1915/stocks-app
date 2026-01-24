@@ -1,0 +1,39 @@
+{
+    "ticker": "AAPL",
+    "cik": "0000320193",
+    "company_name": "Apple Inc.",
+    "fiscal_year": 2023,
+    "fiscal_period": "FY",
+    "current": {
+        "revenue": 383285000000,
+        "gross_profit": 169148000000,
+        "net_income": 96995000000,
+        "total_assets": 352583000000,
+        "current_assets": 143566000000,
+        "current_liabilities": 145308000000,
+        "long_term_debt": 95281000000,
+        "total_liabilities": 290437000000,
+        "shares_outstanding": 15550000000,
+        "operating_cash_flow": 110543000000,
+        "retained_earnings": -214000000,
+        "ebit": 114301000000,
+        "market_cap": 3000000000000,
+        "book_equity": 62146000000
+    },
+    "prior": {
+        "revenue": 394328000000,
+        "gross_profit": 170782000000,
+        "net_income": 99803000000,
+        "total_assets": 352755000000,
+        "current_assets": 135405000000,
+        "current_liabilities": 153982000000,
+        "long_term_debt": 98959000000,
+        "total_liabilities": 302083000000,
+        "shares_outstanding": 15943000000,
+        "operating_cash_flow": 122151000000,
+        "retained_earnings": -3068000000,
+        "ebit": 119437000000,
+        "market_cap": 2500000000000,
+        "book_equity": 50672000000
+    }
+}

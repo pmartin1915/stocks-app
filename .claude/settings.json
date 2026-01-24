@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allowedTools": [
+      "Edit",
+      "Write",
+      "Bash",
+      "Read",
+      "Glob",
+      "Grep",
+      "NotebookEdit",
+      "WebFetch",
+      "WebSearch",
+      "Task",
+      "mcp__pal__chat",
+      "mcp__pal__codereview",
+      "mcp__pal__consensus",
+      "mcp__pal__thinkdeep",
+      "mcp__pal__planner",
+      "mcp__pal__precommit",
+      "mcp__pal__debug",
+      "mcp__pal__secaudit",
+      "mcp__pal__analyze",
+      "mcp__pal__refactor",
+      "mcp__pal__listmodels",
+      "mcp__pal__testgen",
+      "mcp__pal__tracer",
+      "mcp__pal__docgen",
+      "mcp__pal__handoff"
+    ]
+  },
+  "env": {
+    "ENABLE_TOOL_SEARCH": "true"
+  }
+}

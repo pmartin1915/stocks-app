@@ -1,0 +1,48 @@
+[tool.poetry]
+name = "asymmetric"
+version = "0.1.0"
+description = "CLI-first investment research workstation for value investing"
+authors = ["Perry"]
+readme = "README.md"
+packages = [{include = "asymmetric"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+edgartools = "^5.10"           # SEC EDGAR access
+duckdb = "^1.0"                # OLAP for bulk XBRL data
+click = "^8.0"                 # CLI framework
+rich = "^13.0"                 # Terminal formatting
+google-generativeai = "^0.8"   # Gemini API
+sqlmodel = "^0.0.22"           # SQLite ORM
+mcp = "^1.0"                   # MCP SDK
+python-dotenv = "^1.0"         # Environment management
+httpx = "^0.28"                # Async HTTP client (>=0.28 required by edgartools)
+starlette = "^0.45"            # ASGI framework for MCP HTTP transport
+uvicorn = "^0.34"              # ASGI server for MCP HTTP transport
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-asyncio = "^0.23"
+pytest-cov = "^4.0"
+ruff = "^0.2"
+
+[tool.poetry.scripts]
+asymmetric = "asymmetric.cli.main:cli"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
