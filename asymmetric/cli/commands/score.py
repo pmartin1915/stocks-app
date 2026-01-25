@@ -1,6 +1,7 @@
 """Scoring commands for Piotroski F-Score and Altman Z-Score."""
 
 import json
+from datetime import datetime
 
 import click
 from rich.console import Console
@@ -104,6 +105,7 @@ def _get_quick_signals(piotroski_result, altman_result) -> list[tuple[str, str, 
 @click.option("--detail", is_flag=True, help="Show detailed signal breakdown")
 @click.option("--piotroski-only", is_flag=True, help="Only calculate Piotroski F-Score")
 @click.option("--altman-only", is_flag=True, help="Only calculate Altman Z-Score")
+@click.option("--save", is_flag=True, help="Save scores to database")
 @click.pass_context
 def score(
     ctx: click.Context,
@@ -112,6 +114,7 @@ def score(
     detail: bool,
     piotroski_only: bool,
     altman_only: bool,
+    save: bool,
 ) -> None:
     """
     Calculate financial health scores for a company.
@@ -178,6 +181,15 @@ def score(
                 }
             except InsufficientDataError as e:
                 results["altman"] = {"error": str(e)}
+
+        # Save to database if requested
+        if save:
+            p = results.get("piotroski", {})
+            if p and "error" not in p:
+                _save_score_to_db(ticker, results)
+                if not as_json:
+                    console.print("[green]Score saved to database[/green]")
+                    console.print()
 
         # Output
         if as_json:
@@ -360,3 +372,35 @@ def _display_detailed_scores(console: Console, ticker: str, results: dict) -> No
     console.print(f"  [dim]AI Analysis:[/dim]  asymmetric analyze {ticker}")
     console.print(f"  [dim]Compare:[/dim]  asymmetric compare {ticker} MSFT GOOG")
     console.print()
+
+
+def _save_score_to_db(ticker: str, results: dict) -> None:
+    """Save calculated scores to SQLite database."""
+    from asymmetric.db import get_session, init_db, StockScore
+    from asymmetric.db.database import get_or_create_stock
+
+    init_db()
+
+    p = results.get("piotroski", {})
+    a = results.get("altman", {})
+
+    with get_session() as session:
+        stock = get_or_create_stock(ticker)
+        stock = session.merge(stock)
+
+        score_record = StockScore(
+            stock_id=stock.id,
+            piotroski_score=p.get("score", 0),
+            piotroski_signals_available=p.get("signals_available", 9),
+            piotroski_interpretation=p.get("interpretation"),
+            piotroski_profitability=p.get("profitability_score"),
+            piotroski_leverage=p.get("leverage_score"),
+            piotroski_efficiency=p.get("efficiency_score"),
+            altman_z_score=a.get("z_score", 0.0) if a and "error" not in a else 0.0,
+            altman_zone=a.get("zone", "Unknown") if a and "error" not in a else "Unknown",
+            altman_interpretation=a.get("interpretation") if a and "error" not in a else None,
+            altman_formula=a.get("formula_used", "manufacturing") if a else "manufacturing",
+            data_source="live_api",
+            calculated_at=datetime.utcnow(),
+        )
+        session.add(score_record)

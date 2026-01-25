@@ -118,6 +118,11 @@ class PiotroskiResult:
     signals_available: int = 0  # How many signals could be calculated
     missing_signals: list[str] = field(default_factory=list)
 
+    @property
+    def max_score(self) -> int:
+        """Maximum possible score (always 9 for Piotroski F-Score)."""
+        return 9
+
     def __post_init__(self) -> None:
         """Set interpretation based on score."""
         if not self.interpretation:

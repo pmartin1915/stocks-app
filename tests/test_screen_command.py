@@ -30,6 +30,64 @@ def mock_bulk_manager():
     """Create a mock BulkDataManager with sample data."""
     mock = MagicMock()
     mock.get_all_tickers.return_value = ["AAPL", "MSFT", "GOOG"]
+    mock.get_scorable_tickers.return_value = ["AAPL", "MSFT", "GOOG"]
+    # Mock batch financials for optimized screen command
+    mock.get_batch_financials.return_value = {
+        "AAPL": [
+            {
+                "fiscal_year": 2023,
+                "revenue": 100_000_000,
+                "net_income": 15_000_000,
+                "total_assets": 200_000_000,
+                "current_assets": 80_000_000,
+                "current_liabilities": 50_000_000,
+                "total_liabilities": 80_000_000,
+                "long_term_debt": 30_000_000,
+                "operating_cash_flow": 20_000_000,
+                "retained_earnings": 50_000_000,
+                "ebit": 18_000_000,
+                "stockholders_equity": 100_000_000,
+            },
+            {
+                "fiscal_year": 2022,
+                "revenue": 90_000_000,
+                "net_income": 12_000_000,
+                "total_assets": 180_000_000,
+            },
+        ],
+        "MSFT": [
+            {
+                "fiscal_year": 2023,
+                "revenue": 200_000_000,
+                "net_income": 30_000_000,
+                "total_assets": 400_000_000,
+                "current_assets": 160_000_000,
+                "current_liabilities": 100_000_000,
+                "total_liabilities": 150_000_000,
+                "long_term_debt": 50_000_000,
+                "operating_cash_flow": 40_000_000,
+                "retained_earnings": 100_000_000,
+                "ebit": 35_000_000,
+                "stockholders_equity": 200_000_000,
+            },
+        ],
+        "GOOG": [
+            {
+                "fiscal_year": 2023,
+                "revenue": 300_000_000,
+                "net_income": 50_000_000,
+                "total_assets": 500_000_000,
+                "current_assets": 200_000_000,
+                "current_liabilities": 80_000_000,
+                "total_liabilities": 120_000_000,
+                "long_term_debt": 40_000_000,
+                "operating_cash_flow": 60_000_000,
+                "retained_earnings": 150_000_000,
+                "ebit": 55_000_000,
+                "stockholders_equity": 300_000_000,
+            },
+        ],
+    }
     mock.get_latest_financials.return_value = {
         "revenue": 100_000_000,
         "net_income": 15_000_000,
@@ -75,6 +133,7 @@ class TestScreenCommand:
     def test_screen_empty_database(self, mock_manager_class, runner):
         """Test screen with empty database shows warning."""
         mock_manager = MagicMock()
+        mock_manager.get_scorable_tickers.return_value = []
         mock_manager.get_all_tickers.return_value = []
         mock_manager_class.return_value = mock_manager
 

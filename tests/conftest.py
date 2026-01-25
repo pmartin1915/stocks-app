@@ -50,9 +50,11 @@ def healthy_company_data() -> dict[str, Any]:
     Financial data representing a healthy company that should score high.
 
     Expected F-Score: 9/9 (all signals positive)
+    Expected Z-Score: Safe zone (>2.99)
     """
     return {
         "current": {
+            # Piotroski inputs
             "revenue": 100_000_000,
             "gross_profit": 45_000_000,  # 45% margin (up from 40%)
             "net_income": 15_000_000,  # Positive
@@ -62,6 +64,12 @@ def healthy_company_data() -> dict[str, Any]:
             "long_term_debt": 15_000_000,  # Decreased
             "shares_outstanding": 10_000_000,  # No dilution
             "operating_cash_flow": 20_000_000,  # Greater than net income
+            # Altman inputs
+            "total_liabilities": 45_000_000,  # 30M current + 15M long-term
+            "retained_earnings": 80_000_000,  # Strong retained earnings
+            "ebit": 25_000_000,  # Healthy operating income
+            "market_cap": 500_000_000,  # Large market cap
+            "book_equity": 135_000_000,  # Assets - Liabilities
         },
         "prior": {
             "revenue": 90_000_000,
@@ -99,9 +107,11 @@ def weak_company_data() -> dict[str, Any]:
     Financial data representing a weak company that should score low.
 
     Expected F-Score: ~2/9 (most signals negative)
+    Expected Z-Score: Grey or Distress zone (<2.99)
     """
     return {
         "current": {
+            # Piotroski inputs
             "revenue": 80_000_000,  # Revenue down
             "gross_profit": 24_000_000,  # 30% margin (down from 35%)
             "net_income": -5_000_000,  # Negative ROA
@@ -111,6 +121,12 @@ def weak_company_data() -> dict[str, Any]:
             "long_term_debt": 60_000_000,  # Debt up
             "shares_outstanding": 12_000_000,  # Dilution
             "operating_cash_flow": -2_000_000,  # Negative CFO
+            # Altman inputs
+            "total_liabilities": 110_000_000,  # 50M current + 60M long-term
+            "retained_earnings": -20_000_000,  # Accumulated losses
+            "ebit": -3_000_000,  # Operating loss
+            "market_cap": 50_000_000,  # Low market cap
+            "book_equity": 110_000_000,  # Assets - Liabilities
         },
         "prior": {
             "revenue": 90_000_000,
@@ -173,8 +189,10 @@ def perfect_piotroski_data() -> tuple[dict[str, Any], dict[str, Any]]:
     Financial data designed to achieve a perfect 9/9 Piotroski F-Score.
 
     Returns (current, prior) tuple.
+    Also includes Altman inputs for composite scoring tests.
     """
     current = {
+        # Piotroski inputs
         "revenue": 100_000_000,
         "gross_profit": 40_000_000,
         "net_income": 15_000_000,
@@ -184,6 +202,12 @@ def perfect_piotroski_data() -> tuple[dict[str, Any], dict[str, Any]]:
         "long_term_debt": 20_000_000,
         "shares_outstanding": 10_000_000,
         "operating_cash_flow": 25_000_000,
+        # Altman inputs
+        "total_liabilities": 50_000_000,  # 30M current + 20M long-term
+        "retained_earnings": 100_000_000,
+        "ebit": 30_000_000,
+        "market_cap": 600_000_000,
+        "book_equity": 150_000_000,
     }
     prior = {
         "revenue": 90_000_000,

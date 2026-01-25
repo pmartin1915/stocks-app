@@ -571,7 +571,7 @@ class AsymmetricMCPServer:
         }
 
     async def _tool_screen_universe(self, args: dict) -> dict[str, Any]:
-        """Screen stocks by criteria."""
+        """Screen stocks by criteria using optimized batch queries."""
         piotroski_min = args.get("piotroski_min")
         altman_zone = args.get("altman_zone")
         altman_min = args.get("altman_min")
@@ -579,33 +579,59 @@ class AsymmetricMCPServer:
 
         bulk = self._get_bulk_manager()
 
-        # Get all tickers
+        # Try precomputed scores first (near-instant)
+        if bulk.has_precomputed_scores():
+            results = bulk.get_precomputed_scores(
+                piotroski_min=piotroski_min,
+                altman_min=altman_min,
+                altman_zone=altman_zone,
+                limit=limit,
+                sort_by="piotroski_score",
+                sort_order="desc",
+            )
+            return {
+                "criteria": {
+                    "piotroski_min": piotroski_min,
+                    "altman_zone": altman_zone,
+                    "altman_min": altman_min,
+                },
+                "result_count": len(results),
+                "results": results,
+                "source": "precomputed",
+            }
+
+        # Fall back to batch calculation
         try:
-            tickers_result = bulk.conn.execute(
-                "SELECT ticker FROM company_tickers LIMIT 1000"
-            ).fetchall()
-            tickers = [row[0] for row in tickers_result]
+            tickers = bulk.get_scorable_tickers(limit=1000)
+            if not tickers:
+                tickers = bulk.get_all_tickers(limit=1000)
         except Exception as e:
             return {"error": f"Failed to get tickers: {e}"}
+
+        if not tickers:
+            return {"error": "No tickers available. Run 'asymmetric db refresh' first."}
+
+        # Use batch financial data retrieval
+        batch_data = bulk.get_batch_financials(tickers, periods=2)
 
         results = []
         piotroski_scorer = self._get_piotroski_scorer()
         altman_scorer = self._get_altman_scorer()
 
-        for ticker in tickers:
+        for ticker, periods_data in batch_data.items():
             if len(results) >= limit:
                 break
 
             try:
-                financials = bulk.get_latest_financials(ticker)
-                if not financials:
+                if not periods_data:
                     continue
 
+                current = periods_data[0]
+                prior = periods_data[1] if len(periods_data) > 1 else {}
+
                 # Calculate scores
-                piotroski_result = piotroski_scorer.calculate_from_dict(
-                    financials, {}
-                )
-                altman_result = altman_scorer.calculate_from_dict(financials)
+                piotroski_result = piotroski_scorer.calculate_from_dict(current, prior)
+                altman_result = altman_scorer.calculate_from_dict(current)
 
                 # Apply filters
                 if piotroski_min and piotroski_result.score < piotroski_min:
@@ -635,6 +661,7 @@ class AsymmetricMCPServer:
             },
             "result_count": len(results),
             "results": results,
+            "source": "batch_calculated",
         }
 
     async def _tool_extract_custom_metrics(self, args: dict) -> dict[str, Any]:

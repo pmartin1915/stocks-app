@@ -2,6 +2,8 @@
 
 import json
 import logging
+from datetime import datetime
+from pathlib import Path
 
 import click
 from rich.console import Console
@@ -15,6 +17,9 @@ from asymmetric.core.data.exceptions import (
     SECRateLimitError,
 )
 from asymmetric.core.scoring import AltmanScorer, PiotroskiScorer
+
+# Watchlist file location
+WATCHLIST_FILE = Path.home() / ".asymmetric" / "watchlist.json"
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +93,11 @@ def _get_zone_color(zone: str) -> str:
     is_flag=True,
     help="Output as JSON",
 )
+@click.option(
+    "--add-to-watchlist",
+    is_flag=True,
+    help="Add passing stocks to watchlist",
+)
 @click.pass_context
 def screen(
     ctx: click.Context,
@@ -99,6 +109,7 @@ def screen(
     sort_by: str,
     sort_order: str,
     as_json: bool,
+    add_to_watchlist: bool,
 ) -> None:
     """
     Screen stocks by quantitative criteria.
@@ -143,8 +154,17 @@ def screen(
                 console.print("[yellow]Wait a few minutes and try again.[/yellow]")
                 raise SystemExit(1)
 
-        # Get all tickers from bulk data
-        tickers = bulk.get_all_tickers(limit=1000)
+        # Use optimized batch approach: get pre-filtered scorable tickers
+        console.print("[dim]Finding scorable companies...[/dim]")
+        tickers = bulk.get_scorable_tickers(
+            require_piotroski=True,
+            require_altman=True,
+            limit=1000,
+        )
+
+        if not tickers:
+            # Fall back to all tickers if scorable query fails
+            tickers = bulk.get_all_tickers(limit=1000)
 
         if not tickers:
             console.print("[yellow]No bulk data available.[/yellow]")
@@ -158,6 +178,10 @@ def screen(
         results = []
         skipped_count = 0
 
+        # Use batch query for better performance
+        console.print(f"[dim]Fetching financial data for {len(tickers)} companies...[/dim]")
+        batch_data = bulk.get_batch_financials(tickers, periods=2)
+
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -167,16 +191,14 @@ def screen(
             transient=True,
         ) as progress:
             task = progress.add_task(
-                f"[cyan]Screening {len(tickers)} companies...",
-                total=len(tickers),
+                f"[cyan]Scoring {len(batch_data)} companies...",
+                total=len(batch_data),
             )
 
-            for ticker in tickers:
+            for ticker, periods_data in batch_data.items():
                 progress.update(task, advance=1)
 
                 try:
-                    # Get 2 periods of financial data for Piotroski comparison
-                    periods_data = bulk.get_financials_periods(ticker, periods=2)
                     if not periods_data:
                         skipped_count += 1
                         continue
@@ -258,6 +280,13 @@ def screen(
             "results": results,
         }
 
+        # Add to watchlist if requested
+        if add_to_watchlist and results:
+            added_count = _add_results_to_watchlist(results, criteria)
+            if not as_json:
+                console.print(f"[green]Added {added_count} stocks to watchlist[/green]")
+                console.print()
+
         if as_json:
             console.print(json.dumps(output, indent=2))
         else:
@@ -326,3 +355,72 @@ def _display_results(console: Console, output: dict) -> None:
         console.print(f"[dim]Skipped (insufficient data): {stats['skipped']}[/dim]")
 
     console.print()
+
+
+def _add_results_to_watchlist(results: list[dict], criteria: dict) -> int:
+    """
+    Add screening results to watchlist.
+
+    Args:
+        results: List of screening result dicts with ticker, scores, etc.
+        criteria: Screening criteria used (for notes)
+
+    Returns:
+        Number of stocks added to watchlist
+    """
+    # Ensure directory exists
+    WATCHLIST_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    # Load existing watchlist
+    if WATCHLIST_FILE.exists():
+        try:
+            with open(WATCHLIST_FILE, "r") as f:
+                watchlist = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            watchlist = {"stocks": {}}
+    else:
+        watchlist = {"stocks": {}}
+
+    # Build note from criteria
+    criteria_parts = []
+    if criteria.get("piotroski_min"):
+        criteria_parts.append(f"F>={criteria['piotroski_min']}")
+    if criteria.get("altman_min"):
+        criteria_parts.append(f"Z>={criteria['altman_min']}")
+    if criteria.get("altman_zone"):
+        criteria_parts.append(f"Zone={criteria['altman_zone']}")
+    criteria_note = f"Screen: {', '.join(criteria_parts)}" if criteria_parts else "Screen result"
+
+    # Add each result
+    now = datetime.now().isoformat()
+    added_count = 0
+
+    for r in results:
+        ticker = r["ticker"]
+        if ticker not in watchlist["stocks"]:
+            watchlist["stocks"][ticker] = {
+                "added": now,
+                "note": criteria_note,
+                "source": "screen",
+            }
+            added_count += 1
+        else:
+            # Update existing entry with screen info
+            watchlist["stocks"][ticker]["last_screened"] = now
+            watchlist["stocks"][ticker]["screen_note"] = criteria_note
+
+        # Cache the scores
+        watchlist["stocks"][ticker]["cached_scores"] = {
+            "piotroski": r.get("piotroski_score"),
+            "altman": {
+                "z_score": r.get("altman_z_score"),
+                "zone": r.get("altman_zone"),
+            } if r.get("altman_z_score") else None,
+        }
+        watchlist["stocks"][ticker]["cached_at"] = now
+
+    # Save watchlist
+    with open(WATCHLIST_FILE, "w") as f:
+        json.dump(watchlist, f, indent=2)
+
+    return added_count

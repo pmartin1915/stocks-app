@@ -33,6 +33,7 @@ from asymmetric.cli.commands import (
     analyze,
     compare,
     db,
+    decision,
     lookup,
     mcp_cmd,
     score,
@@ -80,6 +81,7 @@ cli.add_command(compare.compare)
 cli.add_command(watchlist.watchlist)
 cli.add_command(analyze.analyze)
 cli.add_command(thesis.thesis)
+cli.add_command(decision.decision)
 cli.add_command(mcp_cmd.mcp)
 cli.add_command(db.db)
 

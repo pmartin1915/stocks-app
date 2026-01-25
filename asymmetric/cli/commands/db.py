@@ -182,3 +182,91 @@ def stats(ctx: click.Context) -> None:
     except Exception as e:
         console.print(f"[red]Error getting stats:[/red] {e}")
         raise SystemExit(1)
+
+
+@db.command()
+@click.option("--limit", type=int, default=10000, help="Maximum companies to score")
+@click.pass_context
+def precompute(ctx: click.Context, limit: int) -> None:
+    """
+    Precompute F-Scores and Z-Scores for all companies.
+
+    Calculates Piotroski F-Score and Altman Z-Score for all companies
+    with sufficient data. Results are stored in DuckDB for instant
+    screening queries.
+
+    \b
+    Note: This uses local bulk data only (zero SEC API calls).
+
+    \b
+    Examples:
+        asymmetric db precompute
+        asymmetric db precompute --limit 5000
+    """
+    import time
+
+    console: Console = ctx.obj["console"]
+
+    try:
+        bulk = BulkDataManager()
+        bulk.initialize_schema()
+
+        # Check if we have data
+        stats = bulk.get_stats()
+        if stats["ticker_count"] == 0:
+            console.print("[yellow]No bulk data available.[/yellow]")
+            console.print("Run [cyan]asymmetric db refresh[/cyan] first.")
+            bulk.close()
+            raise SystemExit(1)
+
+        console.print(f"[bold blue]Precomputing scores for up to {limit:,} companies...[/bold blue]")
+        console.print(f"[dim]Using bulk data with {stats['ticker_count']:,} companies[/dim]")
+        console.print()
+
+        start_time = time.perf_counter()
+        scores_computed = 0
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Computing scores...", total=100)
+
+            def update_progress(current: int, total: int, ticker: str) -> None:
+                nonlocal scores_computed
+                scores_computed = current
+                pct = (current / total * 100) if total > 0 else 0
+                progress.update(task, completed=pct, description=f"Scoring {ticker}...")
+
+            bulk.precompute_scores(limit=limit, progress_callback=update_progress)
+            progress.update(task, completed=100, description="Complete!")
+
+        elapsed = time.perf_counter() - start_time
+
+        # Get final stats
+        score_stats = bulk.get_scores_stats()
+        bulk.close()
+
+        console.print()
+        console.print("[green]Precomputation complete![/green]")
+        console.print()
+
+        table = Table(show_header=False, box=None)
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value")
+        table.add_row("Scores Computed", f"{score_stats.get('total_scores', scores_computed):,}")
+        table.add_row("Time Elapsed", f"{elapsed:.1f} seconds")
+        table.add_row("Last Computed", score_stats.get("last_computed", "N/A"))
+
+        console.print(table)
+        console.print()
+        console.print("[dim]Run 'asymmetric screen' for instant results using precomputed scores.[/dim]")
+
+    except Exception as e:
+        if not isinstance(e, SystemExit):
+            console.print(f"[red]Error precomputing scores:[/red] {e}")
+            raise SystemExit(1)
+        raise
