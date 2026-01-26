@@ -1,6 +1,7 @@
 """Decision tracking commands for investment actions."""
 
 import json
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -8,6 +9,8 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
+from asymmetric.cli.validators import TICKER, validate_price_relationship
 
 
 @click.group()
@@ -29,18 +32,18 @@ def decision(ctx: click.Context) -> None:
 
 
 @decision.command("create")
-@click.argument("ticker")
+@click.argument("ticker", type=TICKER)
 @click.option(
     "--action",
     type=click.Choice(["buy", "hold", "sell", "pass"]),
     required=True,
     help="Investment action",
 )
-@click.option("--thesis", "thesis_id", type=int, default=None, help="Link to thesis ID")
-@click.option("--target-price", type=float, default=None, help="Target price")
-@click.option("--stop-loss", type=float, default=None, help="Stop loss price")
-@click.option("--confidence", type=int, default=None, help="Confidence level 1-5")
-@click.option("--notes", default="", help="Decision rationale/notes")
+@click.option("--thesis", "thesis_id", type=click.IntRange(min=1), default=None, help="Link to thesis ID")
+@click.option("--target-price", type=click.FloatRange(min=0.01), default=None, help="Target price (must be > 0)")
+@click.option("--stop-loss", type=click.FloatRange(min=0.01), default=None, help="Stop loss price (must be > 0)")
+@click.option("--confidence", type=click.IntRange(1, 5), default=None, help="Confidence level 1-5")
+@click.option("--notes", default="", help="Decision rationale/notes (max 500 chars)")
 @click.pass_context
 def decision_create(
     ctx: click.Context,
@@ -61,12 +64,23 @@ def decision_create(
         asymmetric decision create MSFT --action hold --thesis 1 --target-price 450
     """
     console: Console = ctx.obj["console"]
-    ticker = ticker.upper()
+    # Ticker is already validated and uppercased by TICKER type
 
-    # Validate confidence
-    if confidence is not None and (confidence < 1 or confidence > 5):
-        console.print("[red]Confidence must be between 1 and 5[/red]")
+    # Validate price relationship
+    try:
+        validate_price_relationship(target_price, stop_loss, action)
+    except click.BadParameter as e:
+        console.print(f"[red]{e.message}[/red]")
         raise SystemExit(1)
+
+    # Truncate notes if too long
+    if len(notes) > 500:
+        console.print("[yellow]Note truncated to 500 characters[/yellow]")
+        notes = notes[:500]
+
+    # Warn on suspicious decisions
+    if action == "buy" and confidence is not None and confidence < 2:
+        console.print("[yellow]Warning: Low confidence for BUY action[/yellow]")
 
     try:
         from asymmetric.db import get_session, init_db, Decision, Thesis

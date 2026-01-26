@@ -3,6 +3,13 @@
 import click
 from rich.console import Console
 
+from asymmetric.config import config
+
+
+def _get_default_port() -> int:
+    """Get default MCP port from central config."""
+    return config.mcp_default_port
+
 
 @click.group(name="mcp")
 @click.pass_context
@@ -38,8 +45,8 @@ def mcp(ctx: click.Context) -> None:
 @click.option(
     "--port",
     type=int,
-    default=8000,
-    help="Port for HTTP mode",
+    default=None,  # Loaded from central config
+    help="Port for HTTP mode (default from ASYMMETRIC_MCP_PORT)",
 )
 @click.option(
     "--auto-port",
@@ -52,7 +59,7 @@ def mcp_start(
     ctx: click.Context,
     transport: str,
     host: str,
-    port: int,
+    port: int | None,
     auto_port: bool,
 ) -> None:
     """
@@ -85,9 +92,12 @@ def mcp_start(
     """
     console: Console = ctx.obj["console"]
 
+    # Use central config default if port not specified
+    if port is None:
+        port = config.mcp_default_port
+
     try:
         from asymmetric.mcp.server import run_server
-        from asymmetric.config import config
         from asymmetric.core.data.exceptions import PortInUseError
 
         # Check configuration

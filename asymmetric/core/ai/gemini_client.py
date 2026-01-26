@@ -33,10 +33,27 @@ from asymmetric.core.ai.exceptions import (
 
 logger = logging.getLogger(__name__)
 
-# Token thresholds
+# Token thresholds - use central config as source of truth
+# These module-level constants are kept for backward compatibility
+# but actual values are loaded from config at runtime
 TOKEN_WARNING_THRESHOLD = 180_000  # Warn when approaching cliff
 TOKEN_CLIFF_THRESHOLD = 200_000  # Cost doubles above this
 CACHE_TTL_SECONDS = 600  # 10 minutes (Gemini minimum)
+
+
+def _get_token_warning_threshold() -> int:
+    """Get token warning threshold from central config."""
+    return config.gemini_token_warning_threshold
+
+
+def _get_token_cliff_threshold() -> int:
+    """Get token cliff threshold from central config."""
+    return config.gemini_token_cliff_threshold
+
+
+def _get_cache_ttl_seconds() -> int:
+    """Get cache TTL from central config."""
+    return config.gemini_cache_ttl_seconds
 
 
 class GeminiModel(Enum):
@@ -58,14 +75,29 @@ class GeminiModel(Enum):
 
 @dataclass
 class GeminiConfig:
-    """Configuration for Gemini client."""
+    """
+    Configuration for Gemini client.
+
+    Values default to the central config but can be overridden.
+    """
 
     api_key: str
     default_model: GeminiModel = GeminiModel.FLASH
-    cache_ttl_seconds: int = CACHE_TTL_SECONDS
-    token_warning_threshold: int = TOKEN_WARNING_THRESHOLD
-    token_cliff_threshold: int = TOKEN_CLIFF_THRESHOLD
-    max_output_tokens: int = 8192
+    cache_ttl_seconds: Optional[int] = None
+    token_warning_threshold: Optional[int] = None
+    token_cliff_threshold: Optional[int] = None
+    max_output_tokens: Optional[int] = None
+
+    def __post_init__(self):
+        """Load defaults from central config."""
+        if self.cache_ttl_seconds is None:
+            self.cache_ttl_seconds = config.gemini_cache_ttl_seconds
+        if self.token_warning_threshold is None:
+            self.token_warning_threshold = config.gemini_token_warning_threshold
+        if self.token_cliff_threshold is None:
+            self.token_cliff_threshold = config.gemini_token_cliff_threshold
+        if self.max_output_tokens is None:
+            self.max_output_tokens = config.gemini_max_output_tokens
 
     @classmethod
     def from_env(cls) -> "GeminiConfig":
@@ -94,7 +126,7 @@ class CacheEntry:
     def __post_init__(self):
         """Set expiry if not already set."""
         if self.expires_at is None:
-            self.expires_at = self.created_at + timedelta(seconds=CACHE_TTL_SECONDS)
+            self.expires_at = self.created_at + timedelta(seconds=_get_cache_ttl_seconds())
 
     @property
     def is_expired(self) -> bool:

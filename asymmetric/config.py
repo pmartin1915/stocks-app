@@ -2,6 +2,7 @@
 Configuration management for Asymmetric.
 
 Centralizes all configuration from environment variables with sensible defaults.
+This is the SINGLE SOURCE OF TRUTH for all application configuration.
 """
 
 import os
@@ -61,6 +62,75 @@ class Config:
     cache_dir: Path = field(
         default_factory=lambda: Path(
             os.getenv("ASYMMETRIC_CACHE_DIR", "./data/cache")
+        )
+    )
+
+    # ========================================================================
+    # SEC Rate Limiting Configuration
+    # CRITICAL: 5 req/s is 50% of SEC's stated 10 req/s to avoid graylisting
+    # ========================================================================
+    sec_requests_per_second: float = field(
+        default_factory=lambda: float(
+            os.getenv("ASYMMETRIC_SEC_RATE_LIMIT", "5.0")
+        )
+    )
+    sec_burst_allowance: int = field(
+        default_factory=lambda: int(
+            os.getenv("ASYMMETRIC_SEC_BURST", "2")
+        )
+    )
+    sec_max_backoff_seconds: int = field(
+        default_factory=lambda: int(
+            os.getenv("ASYMMETRIC_SEC_MAX_BACKOFF", "60")
+        )
+    )
+    sec_initial_backoff_seconds: float = field(
+        default_factory=lambda: float(
+            os.getenv("ASYMMETRIC_SEC_INITIAL_BACKOFF", "1.0")
+        )
+    )
+
+    # ========================================================================
+    # Gemini AI Configuration
+    # CRITICAL: Cost DOUBLES above 200K tokens ($1.25 -> $2.50 per 1M)
+    # ========================================================================
+    gemini_token_warning_threshold: int = field(
+        default_factory=lambda: int(
+            os.getenv("ASYMMETRIC_GEMINI_TOKEN_WARNING", "180000")
+        )
+    )
+    gemini_token_cliff_threshold: int = field(
+        default_factory=lambda: int(
+            os.getenv("ASYMMETRIC_GEMINI_TOKEN_CLIFF", "200000")
+        )
+    )
+    gemini_cache_ttl_seconds: int = field(
+        default_factory=lambda: int(
+            os.getenv("ASYMMETRIC_GEMINI_CACHE_TTL", "600")
+        )
+    )
+    gemini_max_output_tokens: int = field(
+        default_factory=lambda: int(
+            os.getenv("ASYMMETRIC_GEMINI_MAX_OUTPUT", "8192")
+        )
+    )
+
+    # ========================================================================
+    # MCP Server Configuration
+    # ========================================================================
+    mcp_default_port: int = field(
+        default_factory=lambda: int(
+            os.getenv("ASYMMETRIC_MCP_PORT", "8765")
+        )
+    )
+    mcp_port_range_start: int = field(
+        default_factory=lambda: int(
+            os.getenv("ASYMMETRIC_MCP_PORT_START", "8765")
+        )
+    )
+    mcp_port_range_end: int = field(
+        default_factory=lambda: int(
+            os.getenv("ASYMMETRIC_MCP_PORT_END", "8785")
         )
     )
 

@@ -185,7 +185,7 @@ def stats(ctx: click.Context) -> None:
 
 
 @db.command()
-@click.option("--limit", type=int, default=10000, help="Maximum companies to score")
+@click.option("--limit", type=click.IntRange(1, 100000), default=10000, help="Maximum companies to score (1-100000)")
 @click.pass_context
 def precompute(ctx: click.Context, limit: int) -> None:
     """

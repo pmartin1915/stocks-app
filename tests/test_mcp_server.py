@@ -67,14 +67,17 @@ class TestServerConfig:
     """Tests for ServerConfig."""
 
     def test_default_config(self):
-        """Should have sensible defaults."""
-        config = ServerConfig()
+        """Should have sensible defaults loaded from central config."""
+        from asymmetric.config import config as app_config
 
-        assert config.transport == "stdio"
-        assert config.port == 8000
-        assert config.host == "0.0.0.0"
-        assert config.enable_ai_tools is True
-        assert config.prefer_bulk_data is True
+        server_config = ServerConfig()
+
+        assert server_config.transport == "stdio"
+        # Port default comes from central config (ASYMMETRIC_MCP_PORT)
+        assert server_config.port == app_config.mcp_default_port
+        assert server_config.host == "0.0.0.0"
+        assert server_config.enable_ai_tools is True
+        assert server_config.prefer_bulk_data is True
 
     def test_custom_config(self):
         """Should accept custom values."""

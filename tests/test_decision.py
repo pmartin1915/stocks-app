@@ -170,8 +170,9 @@ class TestDecisionCreate:
             "--confidence", "6",
         ])
 
-        assert result.exit_code == 1
-        assert "Confidence must be between 1 and 5" in result.output
+        # Click's IntRange validation returns exit code 2 (usage error)
+        assert result.exit_code == 2
+        assert "6 is not in the range 1<=x<=5" in result.output
 
     def test_invalid_confidence_too_low(self, runner, tmp_db):
         """Test confidence validation rejects values < 1."""
@@ -181,8 +182,9 @@ class TestDecisionCreate:
             "--confidence", "0",
         ])
 
-        assert result.exit_code == 1
-        assert "Confidence must be between 1 and 5" in result.output
+        # Click's IntRange validation returns exit code 2 (usage error)
+        assert result.exit_code == 2
+        assert "0 is not in the range 1<=x<=5" in result.output
 
     def test_action_required(self, runner, tmp_db):
         """Test that --action is required."""

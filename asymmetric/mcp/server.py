@@ -49,10 +49,14 @@ MAX_RESPONSE_CHARS = 50_000
 
 @dataclass
 class ServerConfig:
-    """Configuration for the MCP server."""
+    """
+    Configuration for the MCP server.
+
+    Port defaults are loaded from central config (single source of truth).
+    """
 
     transport: str = "stdio"  # "stdio" or "http"
-    port: int = 8000
+    port: Optional[int] = None  # Defaults to config.mcp_default_port
     host: str = "0.0.0.0"
     log_level: str = "INFO"
 
@@ -60,6 +64,13 @@ class ServerConfig:
     enable_ai_tools: bool = True  # Requires GEMINI_API_KEY
     prefer_bulk_data: bool = True  # Use local DuckDB when possible
     auto_port: bool = False  # Automatically find available port if specified port is in use
+
+    def __post_init__(self):
+        """Load defaults from central config."""
+        from asymmetric.config import config
+
+        if self.port is None:
+            self.port = config.mcp_default_port
 
 
 def _truncate_response(text: str, max_chars: int = MAX_RESPONSE_CHARS) -> str:

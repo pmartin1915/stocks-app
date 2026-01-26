@@ -48,19 +48,19 @@ def _get_zone_color(zone: str) -> str:
 @click.command()
 @click.option(
     "--piotroski-min",
-    type=int,
+    type=click.IntRange(0, 9),
     default=None,
     help="Minimum Piotroski F-Score (0-9)",
 )
 @click.option(
     "--altman-min",
-    type=float,
+    type=click.FloatRange(min=-10.0, max=50.0),
     default=None,
-    help="Minimum Altman Z-Score",
+    help="Minimum Altman Z-Score (typically 1.81-3.0)",
 )
 @click.option(
     "--altman-zone",
-    type=click.Choice(["Safe", "Grey", "Distress"]),
+    type=click.Choice(["Safe", "Grey", "Distress"], case_sensitive=False),
     default=None,
     help="Required Altman zone",
 )
@@ -71,9 +71,9 @@ def _get_zone_color(zone: str) -> str:
 )
 @click.option(
     "--limit",
-    type=int,
+    type=click.IntRange(1, 10000),
     default=50,
-    help="Maximum results to return",
+    help="Maximum results to return (1-10000)",
 )
 @click.option(
     "--sort-by",
@@ -225,7 +225,8 @@ def screen(
                     # Apply filters
                     if piotroski_min is not None and piotroski_result.score < piotroski_min:
                         continue
-                    if altman_zone is not None and altman_result.zone != altman_zone:
+                    # Case-insensitive zone comparison (user might pass "safe" instead of "Safe")
+                    if altman_zone is not None and altman_result.zone.lower() != altman_zone.lower():
                         continue
                     if altman_min is not None and altman_result.z_score < altman_min:
                         continue
