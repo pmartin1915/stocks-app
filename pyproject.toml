@@ -19,6 +19,8 @@ python-dotenv = "^1.0"         # Environment management
 httpx = "^0.28"                # Async HTTP client (>=0.28 required by edgartools)
 starlette = "^0.45"            # ASGI framework for MCP HTTP transport
 uvicorn = "^0.34"              # ASGI server for MCP HTTP transport
+streamlit = "^1.32"            # Dashboard UI
+pandas = "^2.0"                # Data manipulation for dashboard
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"

@@ -8,6 +8,11 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from asymmetric.cli.formatting import (
+    Signals,
+    get_zone_color,
+    highlight_winner,
+)
 from asymmetric.core.data.edgar_client import EdgarClient
 from asymmetric.core.data.exceptions import (
     InsufficientDataError,
@@ -16,63 +21,6 @@ from asymmetric.core.data.exceptions import (
     SECRateLimitError,
 )
 from asymmetric.core.scoring import AltmanScorer, PiotroskiScorer
-
-
-def _get_score_color(score: int, max_score: int) -> str:
-    """Get color based on score percentage."""
-    pct = score / max_score
-    if pct >= 0.7:
-        return "green"
-    elif pct >= 0.4:
-        return "yellow"
-    else:
-        return "red"
-
-
-def _get_zone_color(zone: str) -> str:
-    """Get color based on Altman zone."""
-    colors = {
-        "Safe": "green",
-        "Grey": "yellow",
-        "Distress": "red",
-    }
-    return colors.get(zone, "white")
-
-
-def _highlight_winner(values: list, higher_is_better: bool = True) -> list[str]:
-    """
-    Return list of colors for values, highlighting the best one.
-
-    Args:
-        values: List of numeric values (or None for missing)
-        higher_is_better: If True, highest value wins; if False, lowest wins
-
-    Returns:
-        List of color strings ("green" for winner, "dim" for others)
-    """
-    # Filter out None values for comparison
-    valid_values = [(i, v) for i, v in enumerate(values) if v is not None]
-
-    if not valid_values:
-        return ["dim"] * len(values)
-
-    # Find winner
-    if higher_is_better:
-        winner_idx = max(valid_values, key=lambda x: x[1])[0]
-    else:
-        winner_idx = min(valid_values, key=lambda x: x[1])[0]
-
-    # Build color list
-    colors = []
-    for i, v in enumerate(values):
-        if v is None:
-            colors.append("dim")
-        elif i == winner_idx:
-            colors.append("green")
-        else:
-            colors.append("white")
-
-    return colors
 
 
 def _calculate_scores(client: EdgarClient, ticker: str) -> dict:
@@ -218,7 +166,7 @@ def _display_comparison(console: Console, results: list[dict]) -> None:
 
     # F-Score row
     f_scores = [r.get("piotroski", {}).get("score") if r.get("piotroski") else None for r in results]
-    f_colors = _highlight_winner(f_scores, higher_is_better=True)
+    f_colors = highlight_winner(f_scores, higher_is_better=True)
 
     f_cells = []
     for i, r in enumerate(results):
@@ -234,7 +182,7 @@ def _display_comparison(console: Console, results: list[dict]) -> None:
 
     # Z-Score row
     z_scores = [r.get("altman", {}).get("z_score") if r.get("altman") else None for r in results]
-    z_colors = _highlight_winner(z_scores, higher_is_better=True)
+    z_colors = highlight_winner(z_scores, higher_is_better=True)
 
     z_cells = []
     for i, r in enumerate(results):
@@ -255,7 +203,7 @@ def _display_comparison(console: Console, results: list[dict]) -> None:
             zone_cells.append(Text("Error", style="dim"))
         elif r.get("altman"):
             zone = r["altman"]["zone"]
-            color = _get_zone_color(zone)
+            color = get_zone_color(zone)
             zone_cells.append(Text(zone, style=color))
         else:
             zone_cells.append(Text("N/A", style="dim"))
@@ -268,7 +216,7 @@ def _display_comparison(console: Console, results: list[dict]) -> None:
     # Component breakdown
     # Profitability
     prof_scores = [r.get("piotroski", {}).get("profitability") if r.get("piotroski") else None for r in results]
-    prof_colors = _highlight_winner(prof_scores, higher_is_better=True)
+    prof_colors = highlight_winner(prof_scores, higher_is_better=True)
 
     prof_cells = []
     for i, r in enumerate(results):
@@ -282,7 +230,7 @@ def _display_comparison(console: Console, results: list[dict]) -> None:
 
     # Leverage
     lev_scores = [r.get("piotroski", {}).get("leverage") if r.get("piotroski") else None for r in results]
-    lev_colors = _highlight_winner(lev_scores, higher_is_better=True)
+    lev_colors = highlight_winner(lev_scores, higher_is_better=True)
 
     lev_cells = []
     for i, r in enumerate(results):
@@ -296,7 +244,7 @@ def _display_comparison(console: Console, results: list[dict]) -> None:
 
     # Efficiency
     eff_scores = [r.get("piotroski", {}).get("efficiency") if r.get("piotroski") else None for r in results]
-    eff_colors = _highlight_winner(eff_scores, higher_is_better=True)
+    eff_colors = highlight_winner(eff_scores, higher_is_better=True)
 
     eff_cells = []
     for i, r in enumerate(results):
@@ -328,7 +276,7 @@ def _display_comparison(console: Console, results: list[dict]) -> None:
     # Next action hints
     console.print()
     if best_ticker:
-        console.print(f"[dim]Best candidate: [bold]{best_ticker}[/bold][/dim]")
+        console.print(f"[dim]Best candidate: [bold green]{best_ticker}[/bold green] {Signals.TROPHY}[/dim]")
     console.print(f"[dim]Next steps:[/dim]")
     if best_ticker:
         console.print(f"  [dim]Deep dive:[/dim]  asymmetric score {best_ticker} --detail")

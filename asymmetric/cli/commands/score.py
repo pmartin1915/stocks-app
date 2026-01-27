@@ -9,6 +9,14 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from asymmetric.cli.formatting import (
+    get_fscore_verdict,
+    get_quick_signals,
+    get_score_color,
+    get_zone_color,
+    get_zscore_verdict,
+    make_progress_bar,
+)
 from asymmetric.core.data.edgar_client import EdgarClient
 from asymmetric.core.data.exceptions import (
     InsufficientDataError,
@@ -17,86 +25,6 @@ from asymmetric.core.data.exceptions import (
     SECRateLimitError,
 )
 from asymmetric.core.scoring import AltmanScorer, PiotroskiScorer
-
-
-def _get_score_color(score: int, max_score: int) -> str:
-    """Get color based on score percentage."""
-    pct = score / max_score
-    if pct >= 0.7:
-        return "green"
-    elif pct >= 0.4:
-        return "yellow"
-    else:
-        return "red"
-
-
-def _get_zone_color(zone: str) -> str:
-    """Get color based on Altman zone."""
-    colors = {
-        "Safe": "green",
-        "Grey": "yellow",
-        "Distress": "red",
-    }
-    return colors.get(zone, "white")
-
-
-def _get_f_score_verdict(score: int) -> tuple[str, str]:
-    """Get plain English verdict for F-Score."""
-    if score >= 7:
-        return "Financially Strong", "green"
-    elif score >= 4:
-        return "Moderate Health", "yellow"
-    else:
-        return "Financial Concerns", "red"
-
-
-def _get_z_score_verdict(zone: str) -> tuple[str, str]:
-    """Get plain English verdict for Z-Score."""
-    verdicts = {
-        "Safe": ("Low Bankruptcy Risk", "green"),
-        "Grey": ("Uncertain Risk", "yellow"),
-        "Distress": ("High Bankruptcy Risk", "red"),
-    }
-    return verdicts.get(zone, ("Unknown", "white"))
-
-
-def _make_progress_bar(value: float, max_value: float, width: int = 10) -> str:
-    """Create a text-based progress bar."""
-    filled = int((value / max_value) * width)
-    empty = width - filled
-    return "█" * filled + "░" * empty
-
-
-def _get_quick_signals(piotroski_result, altman_result) -> list[tuple[str, str, str]]:
-    """Extract quick signal summary (symbol, text, color)."""
-    signals = []
-
-    if piotroski_result and "error" not in piotroski_result:
-        # Profitability check
-        if piotroski_result.get("profitability_score", 0) >= 3:
-            signals.append(("✓", "Profitable", "green"))
-        elif piotroski_result.get("profitability_score", 0) >= 2:
-            signals.append(("~", "Marginally profitable", "yellow"))
-        else:
-            signals.append(("✗", "Unprofitable", "red"))
-
-        # Leverage check
-        if piotroski_result.get("leverage_score", 0) >= 2:
-            signals.append(("✓", "Low debt", "green"))
-        elif piotroski_result.get("leverage_score", 0) >= 1:
-            signals.append(("~", "Moderate debt", "yellow"))
-        else:
-            signals.append(("⚠", "High debt", "red"))
-
-        # Efficiency check
-        if piotroski_result.get("efficiency_score", 0) >= 2:
-            signals.append(("✓", "Efficient operations", "green"))
-        elif piotroski_result.get("efficiency_score", 0) >= 1:
-            signals.append(("~", "Mixed efficiency", "yellow"))
-        else:
-            signals.append(("⚠", "Declining efficiency", "yellow"))
-
-    return signals
 
 
 @click.command()
@@ -246,10 +174,10 @@ def _display_simple_scores(console: Console, ticker: str, results: dict) -> None
     # Build the verdict line
     verdicts = []
     if p and "error" not in p:
-        f_verdict, f_color = _get_f_score_verdict(p["score"])
+        f_verdict, f_color = get_fscore_verdict(p["score"])
         verdicts.append(f"[bold {f_color}]{f_verdict}[/bold {f_color}]")
     if a and "error" not in a:
-        z_verdict, z_color = _get_z_score_verdict(a["zone"])
+        z_verdict, z_color = get_zscore_verdict(a["zone"])
         verdicts.append(f"[bold {z_color}]{z_verdict}[/bold {z_color}]")
 
     verdict_line = " with ".join(verdicts) if verdicts else "Insufficient data"
@@ -262,19 +190,19 @@ def _display_simple_scores(console: Console, ticker: str, results: dict) -> None
     # Score bars
     if p and "error" not in p:
         score = p["score"]
-        color = _get_score_color(score, 9)
-        bar = _make_progress_bar(score, 9)
+        color = get_score_color(score, 9)
+        bar = make_progress_bar(score, 9)
         lines.append(f"  Piotroski F-Score   [{color}]{bar}[/{color}]  [bold]{score}/9[/bold]")
 
     if a and "error" not in a:
         # Z-Score bar (capped at 10 for display)
         z_score = a["z_score"]
-        color = _get_zone_color(a["zone"])
-        bar = _make_progress_bar(min(z_score, 10), 10)
+        color = get_zone_color(a["zone"])
+        bar = make_progress_bar(min(z_score, 10), 10)
         lines.append(f"  Altman Z-Score      [{color}]{bar}[/{color}]  [bold]{z_score:.2f}[/bold] {a['zone']}")
 
     # Quick signals
-    signals = _get_quick_signals(p, a)
+    signals = get_quick_signals(p, a)
     if signals:
         lines.append("")
         signal_parts = []
@@ -305,7 +233,7 @@ def _display_detailed_scores(console: Console, ticker: str, results: dict) -> No
     p = results.get("piotroski", {})
     if p and "error" not in p:
         score = p["score"]
-        color = _get_score_color(score, 9)
+        color = get_score_color(score, 9)
 
         table = Table(show_header=False, box=None, padding=(0, 2))
         table.add_column("Metric", style="cyan")
@@ -339,7 +267,7 @@ def _display_detailed_scores(console: Console, ticker: str, results: dict) -> No
     a = results.get("altman", {})
     if a and "error" not in a:
         zone = a["zone"]
-        color = _get_zone_color(zone)
+        color = get_zone_color(zone)
 
         table = Table(show_header=False, box=None, padding=(0, 2))
         table.add_column("Metric", style="cyan")

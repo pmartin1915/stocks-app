@@ -10,6 +10,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from asymmetric.cli.formatting import get_score_color, get_zone_color
 from asymmetric.core.data.edgar_client import EdgarClient
 from asymmetric.core.data.exceptions import InsufficientDataError
 from asymmetric.core.scoring import AltmanScorer, PiotroskiScorer
@@ -40,27 +41,6 @@ def _save_watchlist(watchlist: dict) -> None:
     _ensure_watchlist_dir()
     with open(WATCHLIST_FILE, "w") as f:
         json.dump(watchlist, f, indent=2)
-
-
-def _get_score_color(score: int, max_score: int) -> str:
-    """Get color based on score percentage."""
-    pct = score / max_score
-    if pct >= 0.7:
-        return "green"
-    elif pct >= 0.4:
-        return "yellow"
-    else:
-        return "red"
-
-
-def _get_zone_color(zone: str) -> str:
-    """Get color based on Altman zone."""
-    colors = {
-        "Safe": "green",
-        "Grey": "yellow",
-        "Distress": "red",
-    }
-    return colors.get(zone, "white")
 
 
 @click.group()
@@ -283,7 +263,7 @@ def review(ctx: click.Context, refresh: bool) -> None:
             # F-Score
             if r.get("piotroski") is not None:
                 f_score = r["piotroski"]
-                f_color = _get_score_color(f_score, 9)
+                f_color = get_score_color(f_score, 9)
                 f_text = Text(f"{f_score}/9", style=f"bold {f_color}")
             else:
                 f_text = Text("N/A", style="dim")
@@ -292,7 +272,7 @@ def review(ctx: click.Context, refresh: bool) -> None:
             if r.get("altman"):
                 z_score = r["altman"]["z_score"]
                 zone = r["altman"]["zone"]
-                z_color = _get_zone_color(zone)
+                z_color = get_zone_color(zone)
                 z_text = Text(f"{z_score:.2f}", style=f"bold {z_color}")
                 zone_text = Text(zone, style=z_color)
             else:

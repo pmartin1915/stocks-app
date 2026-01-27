@@ -15,7 +15,8 @@ import pytest
 from click.testing import CliRunner
 
 from asymmetric.cli.main import cli
-from asymmetric.cli.commands.compare import _highlight_winner, _calculate_scores
+from asymmetric.cli.commands.compare import _calculate_scores
+from asymmetric.cli.formatting import highlight_winner
 
 
 @pytest.fixture
@@ -25,12 +26,12 @@ def runner():
 
 
 class TestHighlightWinner:
-    """Tests for the _highlight_winner helper function."""
+    """Tests for the highlight_winner helper function."""
 
     def test_higher_is_better_finds_max(self):
         """Test that higher_is_better=True highlights the highest value."""
         values = [5, 8, 3, 7]
-        colors = _highlight_winner(values, higher_is_better=True)
+        colors = highlight_winner(values, higher_is_better=True)
 
         assert colors[1] == "green"  # Index 1 (value 8) is highest
         assert colors[0] == "white"
@@ -40,7 +41,7 @@ class TestHighlightWinner:
     def test_lower_is_better_finds_min(self):
         """Test that higher_is_better=False highlights the lowest value."""
         values = [5, 8, 3, 7]
-        colors = _highlight_winner(values, higher_is_better=False)
+        colors = highlight_winner(values, higher_is_better=False)
 
         assert colors[2] == "green"  # Index 2 (value 3) is lowest
         assert colors[0] == "white"
@@ -50,7 +51,7 @@ class TestHighlightWinner:
     def test_handles_none_values(self):
         """Test that None values are handled gracefully."""
         values = [5, None, 8, None]
-        colors = _highlight_winner(values, higher_is_better=True)
+        colors = highlight_winner(values, higher_is_better=True)
 
         assert colors[2] == "green"  # Index 2 (value 8) is highest among valid
         assert colors[0] == "white"
@@ -60,14 +61,14 @@ class TestHighlightWinner:
     def test_all_none_returns_all_dim(self):
         """Test that all None values returns all dim colors."""
         values = [None, None, None]
-        colors = _highlight_winner(values, higher_is_better=True)
+        colors = highlight_winner(values, higher_is_better=True)
 
         assert all(c == "dim" for c in colors)
 
     def test_single_value_is_winner(self):
         """Test that a single valid value is the winner."""
         values = [None, 5, None]
-        colors = _highlight_winner(values, higher_is_better=True)
+        colors = highlight_winner(values, higher_is_better=True)
 
         assert colors[1] == "green"
         assert colors[0] == "dim"
@@ -76,7 +77,7 @@ class TestHighlightWinner:
     def test_tie_goes_to_first(self):
         """Test that ties go to the first occurrence."""
         values = [5, 5, 3]
-        colors = _highlight_winner(values, higher_is_better=True)
+        colors = highlight_winner(values, higher_is_better=True)
 
         # First 5 should be the winner (index 0)
         assert colors[0] == "green"

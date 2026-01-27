@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 TOKEN_WARNING_THRESHOLD = 180_000  # Warn when approaching cliff
 TOKEN_CLIFF_THRESHOLD = 200_000  # Cost doubles above this
 CACHE_TTL_SECONDS = 600  # 10 minutes (Gemini minimum)
+CACHE_MIN_TOKENS = 1024  # Gemini requires minimum 1024 tokens for caching
 
 
 def _get_token_warning_threshold() -> int:
@@ -427,9 +428,20 @@ class GeminiClient:
         # Check for existing cache
         cache_entry = self._cache_registry.get(content_hash)
         cached = False
+        use_caching = token_count >= CACHE_MIN_TOKENS
 
         try:
-            if cache_entry and not cache_entry.is_expired:
+            if not use_caching:
+                # Context too small for caching - use direct generation
+                logger.info(
+                    f"Context too small for caching ({token_count:,} < {CACHE_MIN_TOKENS} tokens). "
+                    "Using direct generation."
+                )
+                model_instance = genai.GenerativeModel(model.value)
+                # Include context in the prompt for direct generation
+                full_prompt = f"{context}\n\n---\n\n{prompt}"
+                prompt = full_prompt
+            elif cache_entry and not cache_entry.is_expired:
                 # Use existing cache
                 cached = True
                 logger.info(

@@ -11,6 +11,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 from rich.table import Table
 from rich.text import Text
 
+from asymmetric.cli.formatting import get_score_color, get_zone_color
 from asymmetric.core.data.bulk_manager import BulkDataManager
 from asymmetric.core.data.exceptions import (
     InsufficientDataError,
@@ -22,27 +23,6 @@ from asymmetric.core.scoring import AltmanScorer, PiotroskiScorer
 WATCHLIST_FILE = Path.home() / ".asymmetric" / "watchlist.json"
 
 logger = logging.getLogger(__name__)
-
-
-def _get_score_color(score: int, max_score: int) -> str:
-    """Get color based on score percentage."""
-    pct = score / max_score
-    if pct >= 0.7:
-        return "green"
-    elif pct >= 0.4:
-        return "yellow"
-    else:
-        return "red"
-
-
-def _get_zone_color(zone: str) -> str:
-    """Get color based on Altman zone."""
-    colors = {
-        "Safe": "green",
-        "Grey": "yellow",
-        "Distress": "red",
-    }
-    return colors.get(zone, "white")
 
 
 @click.command()
@@ -325,9 +305,9 @@ def _display_results(console: Console, output: dict) -> None:
 
         for r in results:
             score = r["piotroski_score"]
-            score_color = _get_score_color(score, 9)
+            score_color = get_score_color(score, 9)
             zone = r["altman_zone"]
-            zone_color = _get_zone_color(zone)
+            zone_color = get_zone_color(zone)
 
             table.add_row(
                 r["ticker"],
