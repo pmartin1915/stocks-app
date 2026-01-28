@@ -28,6 +28,9 @@ st.sidebar.markdown("""
 - **Screener** — Find opportunities
 - **Compare** — Side-by-side analysis
 - **Decisions** — Investment theses
+- **Trends** — Score trajectories
+- **Alerts** — Threshold monitoring
+- **Portfolio** — Holdings & P&L
 """)
 
 # Main page content
@@ -37,20 +40,16 @@ st.markdown("""
 Asymmetric is a CLI-first investment research workstation built for long-term
 value investors. This dashboard provides a visual interface for:
 
-### Watchlist
-View your tracked stocks with current **Piotroski F-Score** (financial health)
-and **Altman Z-Score** (bankruptcy risk) at a glance.
+### Core Features
+- **Watchlist** — Track stocks with F-Score and Z-Score indicators
+- **Screener** — Filter by quantitative criteria using bulk SEC data
+- **Compare** — Side-by-side analysis with AI-powered insights via Gemini
+- **Decisions** — Track investment theses and decision logs
 
-### Screener
-Filter the universe of stocks by quantitative criteria to find new opportunities.
-Uses precomputed scores from bulk SEC data for instant results.
-
-### Compare
-Side-by-side comparison of 2-3 stocks with detailed score breakdowns and
-AI-powered analysis via Gemini.
-
-### Decisions
-Track your investment theses and decision log over time.
+### New Features
+- **Trends** — Visualize F-Score and Z-Score trajectories over time with interactive Plotly charts
+- **Alerts** — Configure threshold alerts for score changes and zone transitions
+- **Portfolio** — Track holdings with FIFO cost basis, P&L, and portfolio-weighted scores
 
 ---
 

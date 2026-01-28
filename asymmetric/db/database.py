@@ -59,13 +59,23 @@ def init_db() -> None:
     Creates all tables defined in the models if they don't exist.
     Safe to call multiple times.
     """
-    # Import models to ensure they're registered
+    # Import models to ensure they're registered with SQLModel metadata
     from asymmetric.db.models import (  # noqa: F401
         Decision,
+        ScoreHistory,
         ScreeningRun,
         Stock,
         StockScore,
         Thesis,
+    )
+    from asymmetric.db.portfolio_models import (  # noqa: F401
+        Holding,
+        PortfolioSnapshot,
+        Transaction,
+    )
+    from asymmetric.db.alert_models import (  # noqa: F401
+        Alert,
+        AlertHistory,
     )
 
     engine = get_engine()
@@ -121,36 +131,49 @@ def reset_engine() -> None:
             logger.info("Database engine reset")
 
 
-def get_stock_by_ticker(ticker: str) -> Optional["Stock"]:
+def get_stock_by_ticker(session_or_ticker, ticker: str = None) -> Optional["Stock"]:
     """
     Helper to get a stock by ticker.
 
+    Can be called two ways:
+    1. get_stock_by_ticker(session, ticker) - uses existing session
+    2. get_stock_by_ticker(ticker) - creates new session
+
     Args:
-        ticker: Stock ticker symbol (case-insensitive).
+        session_or_ticker: Either a Session or ticker string.
+        ticker: Stock ticker symbol if first arg is session.
 
     Returns:
         Stock instance or None if not found.
 
     Note:
-        The returned Stock object is detached from the session.
-        Access all needed attributes before the object is garbage collected.
+        The returned Stock object may be detached from the session
+        when called without a session argument.
     """
     from asymmetric.db.models import Stock
 
-    ticker = ticker.upper()
+    # Handle both calling patterns
+    if isinstance(session_or_ticker, Session):
+        session = session_or_ticker
+        ticker = ticker.upper() if ticker else ""
+        return session.query(Stock).filter(Stock.ticker == ticker).first()
+    else:
+        # Called with just ticker - use new session
+        ticker = session_or_ticker.upper() if session_or_ticker else ""
 
-    with get_session() as session:
-        stock = session.query(Stock).filter(Stock.ticker == ticker).first()
-        if stock is not None:
-            # Eagerly load all attributes before session closes
-            session.refresh(stock)
-            # Expunge from session to prevent DetachedInstanceError
-            session.expunge(stock)
-        return stock
+        with get_session() as session:
+            stock = session.query(Stock).filter(Stock.ticker == ticker).first()
+            if stock is not None:
+                # Eagerly load all attributes before session closes
+                session.refresh(stock)
+                # Expunge from session to prevent DetachedInstanceError
+                session.expunge(stock)
+            return stock
 
 
 def get_or_create_stock(
-    ticker: str,
+    session_or_ticker,
+    ticker: str = None,
     cik: str = "",
     company_name: str = "",
     **kwargs,
@@ -158,8 +181,13 @@ def get_or_create_stock(
     """
     Get existing stock or create a new one.
 
+    Can be called two ways:
+    1. get_or_create_stock(session, ticker=..., cik=...) - uses existing session
+    2. get_or_create_stock(ticker, cik=...) - creates new session
+
     Args:
-        ticker: Stock ticker symbol.
+        session_or_ticker: Either a Session or ticker string.
+        ticker: Stock ticker symbol if first arg is session.
         cik: SEC CIK number.
         company_name: Company name.
         **kwargs: Additional Stock fields.
@@ -168,14 +196,16 @@ def get_or_create_stock(
         Existing or newly created Stock instance.
 
     Note:
-        The returned Stock object is detached from the session.
-        Use session.merge(stock) if you need to reattach it.
+        The returned Stock object may be detached from the session
+        when called without a session argument.
     """
     from asymmetric.db.models import Stock
 
-    ticker = ticker.upper()
+    # Handle both calling patterns
+    if isinstance(session_or_ticker, Session):
+        session = session_or_ticker
+        ticker = ticker.upper() if ticker else ""
 
-    with get_session() as session:
         stock = session.query(Stock).filter(Stock.ticker == ticker).first()
 
         if stock is None:
@@ -189,8 +219,27 @@ def get_or_create_stock(
             session.flush()  # Get ID without committing
             logger.info(f"Created new stock: {ticker}")
 
-        # Eagerly load all attributes before session closes
-        session.refresh(stock)
-        # Expunge from session to prevent DetachedInstanceError
-        session.expunge(stock)
         return stock
+    else:
+        # Called with just ticker - use new session
+        ticker = session_or_ticker.upper() if session_or_ticker else ""
+
+        with get_session() as session:
+            stock = session.query(Stock).filter(Stock.ticker == ticker).first()
+
+            if stock is None:
+                stock = Stock(
+                    ticker=ticker,
+                    cik=cik,
+                    company_name=company_name or ticker,
+                    **kwargs,
+                )
+                session.add(stock)
+                session.flush()  # Get ID without committing
+                logger.info(f"Created new stock: {ticker}")
+
+            # Eagerly load all attributes before session closes
+            session.refresh(stock)
+            # Expunge from session to prevent DetachedInstanceError
+            session.expunge(stock)
+            return stock

@@ -4,18 +4,20 @@ SQLModel definitions for Asymmetric database.
 Defines the schema for:
 - Stock: Company tracking
 - StockScore: Calculated financial scores
+- ScoreHistory: Historical score records for trend analysis
 - Thesis: Investment theses
 - Decision: Investment decisions
 - ScreeningRun: Screening run history
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
 if TYPE_CHECKING:
-    pass
+    from asymmetric.db.alert_models import Alert
+    from asymmetric.db.portfolio_models import Holding, Transaction
 
 
 class Stock(SQLModel, table=True):
@@ -42,6 +44,10 @@ class Stock(SQLModel, table=True):
     # Relationships
     scores: list["StockScore"] = Relationship(back_populates="stock")
     theses: list["Thesis"] = Relationship(back_populates="stock")
+    score_history: list["ScoreHistory"] = Relationship(back_populates="stock")
+    transactions: list["Transaction"] = Relationship(back_populates="stock")
+    holding: Optional["Holding"] = Relationship(back_populates="stock")
+    alerts: list["Alert"] = Relationship(back_populates="stock")
 
 
 class StockScore(SQLModel, table=True):
@@ -176,3 +182,46 @@ class ScreeningRun(SQLModel, table=True):
 
     # Timestamps
     run_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ScoreHistory(SQLModel, table=True):
+    """
+    Historical score record for trend analysis.
+
+    Automatically populated on every score calculation to track
+    F-Score and Z-Score trends over time. One record per stock
+    per fiscal period (unique constraint enforced).
+    """
+
+    __tablename__ = "score_history"
+    __table_args__ = (
+        UniqueConstraint("stock_id", "fiscal_year", "fiscal_period", name="uq_score_history_period"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    stock_id: int = Field(foreign_key="stocks.id", index=True)
+
+    # Fiscal period
+    fiscal_year: int = Field(index=True)
+    fiscal_period: str = Field(max_length=10)  # FY, Q1, Q2, Q3, Q4
+
+    # Piotroski F-Score (0-9)
+    piotroski_score: int = Field(ge=0, le=9)
+    piotroski_profitability: Optional[int] = Field(default=None, ge=0, le=4)
+    piotroski_leverage: Optional[int] = Field(default=None, ge=0, le=3)
+    piotroski_efficiency: Optional[int] = Field(default=None, ge=0, le=2)
+    piotroski_interpretation: Optional[str] = Field(default=None, max_length=100)
+
+    # Altman Z-Score
+    altman_z_score: float
+    altman_zone: str = Field(max_length=20)  # Safe, Grey, Distress
+    altman_formula: str = Field(default="manufacturing", max_length=20)
+
+    # Data source tracking
+    data_source: str = Field(default="bulk_data", max_length=20)  # bulk_data, live_api
+
+    # Timestamps
+    recorded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    # Relationship
+    stock: Optional[Stock] = Relationship(back_populates="score_history")

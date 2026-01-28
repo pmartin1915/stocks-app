@@ -301,7 +301,12 @@ def tmp_db(tmp_db_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[Path
     """
     monkeypatch.setenv("ASYMMETRIC_DB_PATH", str(tmp_db_path))
 
-    # Reset any existing engine
+    # CRITICAL: Also patch the config singleton directly since it reads env at import time
+    from asymmetric.config import config
+
+    monkeypatch.setattr(config, "db_path", tmp_db_path)
+
+    # Reset any existing engine to force creation with new path
     from asymmetric.db.database import reset_engine
 
     reset_engine()

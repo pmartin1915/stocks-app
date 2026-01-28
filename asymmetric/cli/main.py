@@ -6,6 +6,10 @@ Entry point for the command-line interface. Provides commands for:
 - Financial scoring (Piotroski F-Score, Altman Z-Score)
 - Stock comparison (side-by-side)
 - Watchlist management
+- Portfolio tracking (transactions, holdings, P&L)
+- Alerts (score threshold monitoring)
+- Historical trends (score trajectory analysis)
+- Sector analysis (peer comparison)
 - AI-powered filing analysis
 - Thesis management
 - MCP server for Claude Code integration
@@ -19,6 +23,12 @@ Usage:
     asymmetric compare AAPL MSFT GOOG
     asymmetric watchlist add AAPL
     asymmetric watchlist review
+    asymmetric portfolio add AAPL -q 10 -p 150
+    asymmetric portfolio summary
+    asymmetric alerts add AAPL --type fscore_above --threshold 7
+    asymmetric history show AAPL
+    asymmetric trends improving
+    asymmetric sectors list
     asymmetric analyze AAPL
     asymmetric thesis create MSFT --auto
     asymmetric mcp start
@@ -30,14 +40,18 @@ from rich.console import Console
 
 from asymmetric import __version__
 from asymmetric.cli.commands import (
+    alerts,
     analyze,
     compare,
     db,
     decision,
+    history,
     lookup,
     mcp_cmd,
+    portfolio,
     score,
     screen,
+    sectors,
     thesis,
     watchlist,
 )
@@ -79,6 +93,11 @@ cli.add_command(score.score)
 cli.add_command(screen.screen)
 cli.add_command(compare.compare)
 cli.add_command(watchlist.watchlist)
+cli.add_command(portfolio.portfolio)
+cli.add_command(alerts.alerts)
+cli.add_command(history.history)
+cli.add_command(history.trends)
+cli.add_command(sectors.sectors)
 cli.add_command(analyze.analyze)
 cli.add_command(thesis.thesis)
 cli.add_command(decision.decision)
