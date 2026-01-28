@@ -233,10 +233,10 @@ class TestSignals:
         assert Signals.WARNING is not None
         assert len(Signals.WARNING) > 0
 
-    def test_trophy_symbol_exists(self):
-        """Test TROPHY symbol is defined."""
-        assert Signals.TROPHY is not None
-        assert len(Signals.TROPHY) > 0
+    def test_winner_symbol_exists(self):
+        """Test WINNER symbol is defined."""
+        assert Signals.WINNER is not None
+        assert len(Signals.WINNER) > 0
 
     def test_star_symbol_exists(self):
         """Test STAR symbol is defined."""
@@ -512,10 +512,10 @@ class TestHighlightWinner:
 class TestWinnerIndicator:
     """Tests for winner_indicator function."""
 
-    def test_winner_returns_trophy(self):
-        """Test is_winner=True returns trophy symbol."""
+    def test_winner_returns_diamond(self):
+        """Test is_winner=True returns winner diamond symbol."""
         result = winner_indicator(True)
-        assert Signals.TROPHY in result
+        assert Signals.WINNER in result
 
     def test_not_winner_returns_empty(self):
         """Test is_winner=False returns empty string."""

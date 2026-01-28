@@ -276,7 +276,7 @@ def _display_comparison(console: Console, results: list[dict]) -> None:
     # Next action hints
     console.print()
     if best_ticker:
-        console.print(f"[dim]Best candidate: [bold green]{best_ticker}[/bold green] {Signals.TROPHY}[/dim]")
+        console.print(f"[dim]Best candidate: [bold green]{best_ticker}[/bold green] {Signals.WINNER}[/dim]")
     console.print(f"[dim]Next steps:[/dim]")
     if best_ticker:
         console.print(f"  [dim]Deep dive:[/dim]  asymmetric score {best_ticker} --detail")

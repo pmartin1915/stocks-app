@@ -85,7 +85,11 @@ def get_zscore_verdict(zone: str) -> tuple[str, str]:
 
 
 class Signals:
-    """Unicode signal indicators for CLI display."""
+    """Unicode signal indicators for CLI display.
+
+    Uses clean Unicode symbols that render consistently across terminals.
+    Avoids emoji for cross-platform compatibility.
+    """
 
     # Pass/Fail indicators
     CHECK = "✓"
@@ -93,12 +97,13 @@ class Signals:
     TILDE = "~"
     WARNING = "⚠"
 
-    # Winner indicators
-    TROPHY = "🏆"
-    MEDAL_GOLD = "🥇"
-    MEDAL_SILVER = "🥈"
-    MEDAL_BRONZE = "🥉"
-    STAR = "★"
+    # Winner/rank indicators (Unicode symbols, not emoji)
+    WINNER = "◆"      # Solid diamond - marks the best option
+    STAR = "★"        # Filled star - for ratings
+    STAR_EMPTY = "☆"  # Empty star - for ratings
+    BULLET = "●"      # Solid bullet - for lists/ranking
+    ARROW_UP = "▲"    # Up arrow - improvement
+    ARROW_DOWN = "▼"  # Down arrow - decline
 
 
 def signal_indicator(passed: Optional[bool]) -> tuple[str, str]:
@@ -242,8 +247,8 @@ def winner_indicator(is_winner: bool) -> str:
         is_winner: Whether this is the winner
 
     Returns:
-        Trophy symbol or empty string
+        Winner diamond symbol or empty string
     """
     if is_winner:
-        return f" {Signals.TROPHY}"
+        return f" {Signals.WINNER}"
     return ""
