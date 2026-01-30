@@ -225,9 +225,14 @@ class AsymmetricMCPServer:
                     name="get_filing_section",
                     description=(
                         "Get a specific section from a company's SEC filing. "
-                        "Use this for targeted analysis to reduce token usage. "
-                        "Common sections: 'Item 1' (Business), 'Item 1A' (Risk Factors), "
-                        "'Item 7' (MD&A), 'Item 8' (Financial Statements)."
+                        "RECOMMENDED for targeted analysis - reduces token usage by ~80% "
+                        "compared to full filing (from ~150K to ~30K tokens). "
+                        "\n\n"
+                        "Common sections:\n"
+                        "- 'Item 1' (Business Description) - ~30K tokens\n"
+                        "- 'Item 1A' (Risk Factors) - ~25K tokens\n"
+                        "- 'Item 7' (MD&A) - ~35K tokens\n"
+                        "- 'Item 8' (Financial Statements) - ~40K tokens"
                     ),
                     inputSchema={
                         "type": "object",
@@ -253,8 +258,18 @@ class AsymmetricMCPServer:
                     name="analyze_filing_with_ai",
                     description=(
                         "Analyze SEC filing content with Gemini AI. Uses context caching "
-                        "for 10x cost reduction on follow-up queries. Specify a prompt to "
-                        "guide analysis (e.g., 'Summarize key risks', 'Identify competitive moat')."
+                        "for 10x cost reduction on follow-up queries. "
+                        "\n\n"
+                        "IMPORTANT: Full filing uses ~150K tokens. Using 'section' parameter "
+                        "reduces tokens by ~80% (to ~30K) and cuts cost by 80%. "
+                        "\n\n"
+                        "Common sections:\n"
+                        "- 'Item 1A' (Risk Factors) - ~25K tokens\n"
+                        "- 'Item 7' (MD&A) - ~35K tokens\n"
+                        "- 'Item 1' (Business) - ~30K tokens\n"
+                        "\n"
+                        "Specify a prompt to guide analysis "
+                        "(e.g., 'Summarize key risks', 'Identify competitive moat')."
                     ),
                     inputSchema={
                         "type": "object",
@@ -269,7 +284,10 @@ class AsymmetricMCPServer:
                             },
                             "section": {
                                 "type": "string",
-                                "description": "Specific section to analyze (optional, reduces cost)",
+                                "description": (
+                                    "Specific section to analyze (RECOMMENDED for 80% token/cost reduction). "
+                                    "Examples: 'Item 1A' (risks), 'Item 7' (MD&A), 'Item 1' (business)"
+                                ),
                             },
                             "filing_type": {
                                 "type": "string",

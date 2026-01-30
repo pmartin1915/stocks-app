@@ -106,7 +106,7 @@ class Config:
     )
     gemini_cache_ttl_seconds: int = field(
         default_factory=lambda: int(
-            os.getenv("ASYMMETRIC_GEMINI_CACHE_TTL", "600")
+            os.getenv("ASYMMETRIC_GEMINI_CACHE_TTL", "1800")
         )
     )
     gemini_max_output_tokens: int = field(

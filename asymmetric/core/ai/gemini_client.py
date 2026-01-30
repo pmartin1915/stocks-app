@@ -19,7 +19,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 # Token thresholds - use central config as source of truth
 # These module-level constants are kept for backward compatibility
 # but actual values are loaded from config at runtime
+TOKEN_GUIDANCE_THRESHOLD = 100_000  # Suggest sections at 100K tokens
 TOKEN_WARNING_THRESHOLD = 180_000  # Warn when approaching cliff
 TOKEN_CLIFF_THRESHOLD = 200_000  # Cost doubles above this
 CACHE_TTL_SECONDS = 600  # 10 minutes (Gemini minimum)
@@ -119,7 +120,7 @@ class CacheEntry:
 
     cache_name: str  # Gemini's cache identifier
     content_hash: str  # Hash of cached content for verification
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: Optional[datetime] = None
     token_count: int = 0
     model: GeminiModel = GeminiModel.FLASH
@@ -134,12 +135,12 @@ class CacheEntry:
         """Check if cache has expired (with 30s safety buffer before actual expiry)."""
         # We consider it expired 30s before the actual expiry to avoid using
         # a cache that might expire mid-request
-        return datetime.utcnow() >= self.expires_at - timedelta(seconds=30)
+        return datetime.now(timezone.utc) >= self.expires_at - timedelta(seconds=30)
 
     @property
     def ttl_remaining(self) -> int:
         """Seconds until cache expires."""
-        delta = self.expires_at - datetime.utcnow()
+        delta = self.expires_at - datetime.now(timezone.utc)
         return max(0, int(delta.total_seconds()))
 
 
@@ -356,7 +357,7 @@ class GeminiClient:
         result = model_instance.count_tokens(text)
         return result.total_tokens
 
-    def check_token_threshold(self, text: str) -> tuple[int, bool, bool]:
+    def check_token_threshold(self, text: str) -> tuple[int, bool, bool, bool]:
         """
         Check if text exceeds token thresholds.
 
@@ -364,7 +365,7 @@ class GeminiClient:
             text: Text to check.
 
         Returns:
-            Tuple of (token_count, exceeds_warning, exceeds_cliff)
+            Tuple of (token_count, exceeds_guidance, exceeds_warning, exceeds_cliff)
         """
         # Use estimate first (fast)
         estimated = self._estimate_tokens(text)
@@ -377,6 +378,7 @@ class GeminiClient:
 
         return (
             token_count,
+            token_count >= TOKEN_GUIDANCE_THRESHOLD,
             token_count >= TOKEN_WARNING_THRESHOLD,
             token_count >= TOKEN_CLIFF_THRESHOLD,
         )
@@ -414,7 +416,7 @@ class GeminiClient:
         content_hash = self._hash_content(context)
 
         # Check token count
-        token_count, near_cliff, exceeds_cliff = self.check_token_threshold(context)
+        token_count, needs_guidance, near_cliff, exceeds_cliff = self.check_token_threshold(context)
 
         if exceeds_cliff:
             raise GeminiContextTooLargeError(token_count, TOKEN_CLIFF_THRESHOLD)
@@ -422,7 +424,14 @@ class GeminiClient:
         if near_cliff:
             logger.warning(
                 f"Context approaching 200K threshold ({token_count:,} tokens). "
-                "Cost will double above 200K. Consider section-based analysis."
+                "Cost will DOUBLE above 200K. Strongly recommend section-based analysis "
+                "to reduce tokens by ~80%."
+            )
+        elif needs_guidance:
+            logger.info(
+                f"Large context detected ({token_count:,} tokens). "
+                "Consider section-based analysis to reduce cost by ~80%. "
+                "Common sections: 'Item 1A' (risks), 'Item 7' (MD&A), 'Item 1' (business)."
             )
 
         # Check for existing cache
@@ -576,15 +585,14 @@ class GeminiClient:
             Dictionary mapping metric names to extracted values.
         """
         metrics_list = "\n".join(f"- {m}" for m in metrics)
+
+        # Context caching handles filing text efficiently - no need to embed in prompt
         prompt = f"""Extract the following financial metrics from this SEC filing.
 Return ONLY a JSON object with metric names as keys and values as numbers or null if not found.
 Do not include any explanation.
 
 Metrics to extract:
 {metrics_list}
-
-Filing text:
-{filing_text[:50000]}  # Truncate to avoid token limits
 """
 
         result = self.analyze_with_cache(
