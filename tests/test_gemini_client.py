@@ -13,8 +13,8 @@ from asymmetric.core.ai.exceptions import (
     GeminiContextTooLargeError,
     GeminiRateLimitError,
 )
+from asymmetric.config import config
 from asymmetric.core.ai.gemini_client import (
-    CACHE_TTL_SECONDS,
     TOKEN_CLIFF_THRESHOLD,
     TOKEN_WARNING_THRESHOLD,
     AnalysisResult,
@@ -87,7 +87,9 @@ class TestCacheEntry:
     def test_cache_entry_expiry(self):
         """Should correctly calculate expiry."""
         # Create an entry that was created long ago (already expired)
-        old_created = datetime.now(timezone.utc) - timedelta(seconds=CACHE_TTL_SECONDS + 60)
+        # Use config value since CacheEntry uses _get_cache_ttl_seconds() which reads from config
+        cache_ttl = config.gemini_cache_ttl_seconds
+        old_created = datetime.now(timezone.utc) - timedelta(seconds=cache_ttl + 60)
         entry = CacheEntry(
             cache_name="cache-123",
             content_hash="abc123",
@@ -114,9 +116,11 @@ class TestCacheEntry:
             content_hash="abc123",
         )
 
-        # Should be close to CACHE_TTL_SECONDS
-        assert entry.ttl_remaining > CACHE_TTL_SECONDS - 5
-        assert entry.ttl_remaining <= CACHE_TTL_SECONDS
+        # Use config value since CacheEntry uses _get_cache_ttl_seconds() which reads from config
+        cache_ttl = config.gemini_cache_ttl_seconds
+        # Should be close to cache_ttl (allow 5 second margin for test execution time)
+        assert entry.ttl_remaining > cache_ttl - 5
+        assert entry.ttl_remaining <= cache_ttl
 
 
 class TestContextCacheRegistry:
