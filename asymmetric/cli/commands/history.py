@@ -6,7 +6,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from asymmetric.cli.formatting import get_score_color, get_zone_color
+from asymmetric.cli.formatting import get_score_color, get_zone_color, print_next_steps
 from asymmetric.core.trends.analyzer import TrendAnalyzer
 
 
@@ -109,6 +109,15 @@ def history_show(ctx: click.Context, ticker: str, years: int, chart: bool, as_js
                 f"Trend: [{direction_style}]{trend.trend_direction.upper()}[/{direction_style}] "
                 f"(F-Score {trend.fscore_change:+d} over {trend.periods_analyzed} periods)"
             )
+
+    # Next steps
+    print_next_steps(
+        console,
+        [
+            ("Score details", f"asymmetric score {ticker} --detail"),
+            ("Compare", f"asymmetric compare {ticker} ..."),
+        ],
+    )
 
 
 @history.command("compare")

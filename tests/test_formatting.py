@@ -430,36 +430,36 @@ class TestMakeProgressBar:
         """Test 100% filled bar."""
         bar = make_progress_bar(10, 10, 10)
         assert len(bar) == 10
-        assert bar.count("\u2588") == 10  # All filled
-        assert bar.count("\u2591") == 0  # None empty
+        assert bar.count("#") == 10  # All filled
+        assert bar.count("-") == 0  # None empty
 
     def test_empty_bar(self):
         """Test 0% filled bar."""
         bar = make_progress_bar(0, 10, 10)
         assert len(bar) == 10
-        assert bar.count("\u2588") == 0  # None filled
-        assert bar.count("\u2591") == 10  # All empty
+        assert bar.count("#") == 0  # None filled
+        assert bar.count("-") == 10  # All empty
 
     def test_half_bar(self):
         """Test 50% filled bar."""
         bar = make_progress_bar(5, 10, 10)
         assert len(bar) == 10
-        assert bar.count("\u2588") == 5
-        assert bar.count("\u2591") == 5
+        assert bar.count("#") == 5
+        assert bar.count("-") == 5
 
     def test_custom_width(self):
         """Test custom width parameter."""
         bar = make_progress_bar(5, 10, 20)
         assert len(bar) == 20
-        assert bar.count("\u2588") == 10
-        assert bar.count("\u2591") == 10
+        assert bar.count("#") == 10
+        assert bar.count("-") == 10
 
     def test_fractional_value(self):
         """Test fractional percentage (30%)."""
         bar = make_progress_bar(3, 10, 10)
         assert len(bar) == 10
-        assert bar.count("\u2588") == 3
-        assert bar.count("\u2591") == 7
+        assert bar.count("#") == 3
+        assert bar.count("-") == 7
 
     def test_default_width(self):
         """Test default width is 10."""

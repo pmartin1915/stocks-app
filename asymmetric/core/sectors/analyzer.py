@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from sqlalchemy import Integer, and_, cast, func, or_
+from sqlmodel import select
 
 from asymmetric.core.data.bulk_manager import BulkDataManager
 from asymmetric.core.data.sic_codes import (
@@ -127,7 +128,7 @@ class SectorAnalyzer:
             Subquery with stock_id and max calculated_at
         """
         latest = (
-            session.query(
+            select(
                 StockScore.stock_id, func.max(StockScore.calculated_at).label("max_date")
             )
             .group_by(StockScore.stock_id)
@@ -178,15 +179,15 @@ class SectorAnalyzer:
                 return []
 
             # Single query with SIC filter in SQL
-            peers = (
-                session.query(Stock.ticker)
-                .filter(Stock.sic_code.isnot(None))
-                .filter(Stock.ticker != ticker.upper())
-                .filter(sic_filter)
+            stmt = (
+                select(Stock.ticker)
+                .where(Stock.sic_code.isnot(None))
+                .where(Stock.ticker != ticker.upper())
+                .where(sic_filter)
                 .limit(limit)
-                .all()
             )
-            return [p[0] for p in peers]
+            peers = session.exec(stmt).all()
+            return [p for p in peers]
 
     def get_sector_averages(self, sector: Optional[str] = None) -> list[SectorAverage]:
         """
@@ -210,8 +211,8 @@ class SectorAnalyzer:
                     continue
 
                 # Single query: JOIN Stock + StockScore with SIC filter
-                stocks_with_scores = (
-                    session.query(Stock, StockScore)
+                stmt = (
+                    select(Stock, StockScore)
                     .join(StockScore, Stock.id == StockScore.stock_id)
                     .join(
                         latest,
@@ -220,10 +221,10 @@ class SectorAnalyzer:
                             StockScore.calculated_at == latest.c.max_date,
                         ),
                     )
-                    .filter(Stock.sic_code.isnot(None))
-                    .filter(sic_filter)
-                    .all()
+                    .where(Stock.sic_code.isnot(None))
+                    .where(sic_filter)
                 )
+                stocks_with_scores = session.exec(stmt).all()
 
                 if not stocks_with_scores:
                     continue
@@ -274,8 +275,8 @@ class SectorAnalyzer:
             latest = self._latest_score_subquery(session)
 
             # Query 1: Get this stock's latest score
-            latest_score = (
-                session.query(StockScore)
+            stmt = (
+                select(StockScore)
                 .join(
                     latest,
                     and_(
@@ -283,9 +284,9 @@ class SectorAnalyzer:
                         StockScore.calculated_at == latest.c.max_date,
                     ),
                 )
-                .filter(StockScore.stock_id == stock.id)
-                .first()
+                .where(StockScore.stock_id == stock.id)
             )
+            latest_score = session.exec(stmt).first()
             if not latest_score:
                 return None
 
@@ -298,8 +299,8 @@ class SectorAnalyzer:
             # Query 3: Get all peer scores in one query (for ranking)
             sic_filter = self._build_sic_filter(sector_info.sector)
 
-            all_sector_scores = (
-                session.query(StockScore.piotroski_score)
+            stmt = (
+                select(StockScore.piotroski_score)
                 .join(Stock, StockScore.stock_id == Stock.id)
                 .join(
                     latest,
@@ -308,12 +309,12 @@ class SectorAnalyzer:
                         StockScore.calculated_at == latest.c.max_date,
                     ),
                 )
-                .filter(Stock.sic_code.isnot(None))
-                .filter(sic_filter)
-                .all()
+                .where(Stock.sic_code.isnot(None))
+                .where(sic_filter)
             )
+            all_sector_scores = session.exec(stmt).all()
 
-            all_scores = sorted([s[0] for s in all_sector_scores], reverse=True)
+            all_scores = sorted([s for s in all_sector_scores], reverse=True)
             total = len(all_scores)
 
             # Calculate rank (count how many have higher score)
@@ -365,8 +366,8 @@ class SectorAnalyzer:
             latest = self._latest_score_subquery(session)
 
             # Single query with JOIN, ORDER BY and LIMIT
-            query = (
-                session.query(Stock, StockScore)
+            stmt = (
+                select(Stock, StockScore)
                 .join(StockScore, Stock.id == StockScore.stock_id)
                 .join(
                     latest,
@@ -375,19 +376,19 @@ class SectorAnalyzer:
                         StockScore.calculated_at == latest.c.max_date,
                     ),
                 )
-                .filter(Stock.sic_code.isnot(None))
-                .filter(sic_filter)
+                .where(Stock.sic_code.isnot(None))
+                .where(sic_filter)
             )
 
             # Sort by metric in SQL
             if metric == "zscore":
-                query = query.order_by(StockScore.altman_z_score.desc())
+                stmt = stmt.order_by(StockScore.altman_z_score.desc())
             else:
-                query = query.order_by(
+                stmt = stmt.order_by(
                     StockScore.piotroski_score.desc(), StockScore.altman_z_score.desc()
                 )
 
-            results_raw = query.limit(limit).all()
+            results_raw = session.exec(stmt.limit(limit)).all()
 
             # Build result list with ranks
             results = []
@@ -437,8 +438,8 @@ class SectorAnalyzer:
             latest = self._latest_score_subquery(session)
 
             # Single query with JOIN and all filters in SQL
-            query = (
-                session.query(Stock, StockScore)
+            stmt = (
+                select(Stock, StockScore)
                 .join(StockScore, Stock.id == StockScore.stock_id)
                 .join(
                     latest,
@@ -447,24 +448,24 @@ class SectorAnalyzer:
                         StockScore.calculated_at == latest.c.max_date,
                     ),
                 )
-                .filter(Stock.sic_code.isnot(None))
-                .filter(sic_filter)
+                .where(Stock.sic_code.isnot(None))
+                .where(sic_filter)
             )
 
             # Apply filters in SQL
             if min_fscore is not None:
-                query = query.filter(StockScore.piotroski_score >= min_fscore)
+                stmt = stmt.where(StockScore.piotroski_score >= min_fscore)
             if min_zscore is not None:
-                query = query.filter(StockScore.altman_z_score >= min_zscore)
+                stmt = stmt.where(StockScore.altman_z_score >= min_zscore)
             if zone is not None:
-                query = query.filter(StockScore.altman_zone == zone)
+                stmt = stmt.where(StockScore.altman_zone == zone)
 
             # Sort and limit
-            query = query.order_by(
+            stmt = stmt.order_by(
                 StockScore.piotroski_score.desc(), StockScore.altman_z_score.desc()
             ).limit(limit)
 
-            results_raw = query.all()
+            results_raw = session.exec(stmt).all()
 
             # Build result list with ranks
             results = []

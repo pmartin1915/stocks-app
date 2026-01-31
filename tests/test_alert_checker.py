@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from sqlmodel import select
 
 from asymmetric.core.alerts.checker import AlertChecker
 from asymmetric.db.alert_models import Alert, AlertHistory
@@ -84,7 +85,7 @@ class TestCreateAlert:
 
         # Verify by querying database directly
         with get_session() as session:
-            db_alert = session.query(Alert).filter(Alert.stock_id == stock_id).first()
+            db_alert = session.exec(select(Alert).where(Alert.stock_id == stock_id)).first()
             assert db_alert is not None
             assert db_alert.stock_id == stock_id
             assert db_alert.alert_type == "fscore_above"
@@ -104,7 +105,7 @@ class TestCreateAlert:
         )
 
         with get_session() as session:
-            db_alert = session.query(Alert).filter(Alert.stock_id == stock_id).first()
+            db_alert = session.exec(select(Alert).where(Alert.stock_id == stock_id)).first()
             assert db_alert.alert_type == "fscore_below"
             assert db_alert.threshold_value == 5.0
 
@@ -120,7 +121,7 @@ class TestCreateAlert:
         )
 
         with get_session() as session:
-            db_alert = session.query(Alert).filter(Alert.stock_id == stock_id).first()
+            db_alert = session.exec(select(Alert).where(Alert.stock_id == stock_id)).first()
             assert db_alert.alert_type == "zscore_zone"
             assert db_alert.threshold_zone == "Distress"
             assert db_alert.severity == "critical"
@@ -206,7 +207,7 @@ class TestCheckAlert:
 
         # Manually set last_checked_value below threshold to simulate crossing
         with get_session() as session:
-            db_alert = session.query(Alert).filter(Alert.id == alert_id).first()
+            db_alert = session.exec(select(Alert).where(Alert.id == alert_id)).first()
             db_alert.last_checked_value = 5.0
             session.commit()
 
@@ -254,7 +255,7 @@ class TestCheckAlert:
 
         # Manually set last_checked_value above threshold
         with get_session() as session:
-            db_alert = session.query(Alert).filter(Alert.id == alert_id).first()
+            db_alert = session.exec(select(Alert).where(Alert.id == alert_id)).first()
             db_alert.last_checked_value = 6.0
             session.commit()
 
@@ -282,7 +283,7 @@ class TestCheckAlert:
 
         # Manually set previous zone to different value
         with get_session() as session:
-            db_alert = session.query(Alert).filter(Alert.id == alert_id).first()
+            db_alert = session.exec(select(Alert).where(Alert.id == alert_id)).first()
             db_alert.last_checked_zone = "Grey"  # Was Grey, now Distress
             session.commit()
 
@@ -344,7 +345,7 @@ class TestAlertAcknowledge:
 
         # Verify persistence
         with get_session() as session:
-            history = session.query(AlertHistory).filter(AlertHistory.id == history_id).first()
+            history = session.exec(select(AlertHistory).where(AlertHistory.id == history_id)).first()
             assert history.acknowledged is True
             assert history.acknowledged_by == "test_user"
             assert history.acknowledged_at is not None
@@ -381,7 +382,7 @@ class TestAlertRemove:
 
         # Verify deleted
         with get_session() as session:
-            db_alert = session.query(Alert).filter(Alert.id == alert_id).first()
+            db_alert = session.exec(select(Alert).where(Alert.id == alert_id)).first()
             assert db_alert is None
 
     def test_remove_alert_cascades_history(self, checker, stock_with_score):
@@ -414,7 +415,7 @@ class TestAlertRemove:
 
         # Verify history also deleted
         with get_session() as session:
-            history = session.query(AlertHistory).filter(AlertHistory.id == history_id).first()
+            history = session.exec(select(AlertHistory).where(AlertHistory.id == history_id)).first()
             assert history is None
 
     def test_remove_not_found(self, checker):
@@ -468,7 +469,7 @@ class TestGetAlerts:
 
         # Deactivate
         with get_session() as session:
-            db_alert = session.query(Alert).filter(Alert.id == alert_id).first()
+            db_alert = session.exec(select(Alert).where(Alert.id == alert_id)).first()
             db_alert.is_active = False
             session.commit()
 

@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
+from sqlmodel import select
+
 from asymmetric.db.alert_models import Alert, AlertHistory
 from asymmetric.db.database import get_session, get_stock_by_ticker
 from asymmetric.db.models import Stock, StockScore
@@ -53,7 +55,7 @@ class AlertChecker:
 
         with get_session() as session:
             # Get all active alerts
-            query = session.query(Alert).filter(Alert.is_active == True)
+            stmt = select(Alert).where(Alert.is_active == True)
 
             if tickers:
                 stock_ids = []
@@ -61,9 +63,9 @@ class AlertChecker:
                     stock = get_stock_by_ticker(session, ticker)
                     if stock:
                         stock_ids.append(stock.id)
-                query = query.filter(Alert.stock_id.in_(stock_ids))
+                stmt = stmt.where(Alert.stock_id.in_(stock_ids))
 
-            alerts = query.all()
+            alerts = session.exec(stmt).all()
 
             for alert in alerts:
                 trigger = self._check_alert(session, alert)
@@ -96,16 +98,15 @@ class AlertChecker:
             AlertTrigger if triggered, None otherwise
         """
         # Get stock and latest score
-        stock = session.query(Stock).filter(Stock.id == alert.stock_id).first()
+        stock = session.exec(select(Stock).where(Stock.id == alert.stock_id)).first()
         if not stock:
             return None
 
-        latest_score = (
-            session.query(StockScore)
-            .filter(StockScore.stock_id == stock.id)
+        latest_score = session.exec(
+            select(StockScore)
+            .where(StockScore.stock_id == stock.id)
             .order_by(StockScore.calculated_at.desc())
-            .first()
-        )
+        ).first()
         if not latest_score:
             return None
 
@@ -258,12 +259,11 @@ class AlertChecker:
                 raise ValueError(f"threshold_value required for {alert_type}")
 
             # Get current values for baseline
-            latest_score = (
-                session.query(StockScore)
-                .filter(StockScore.stock_id == stock.id)
+            latest_score = session.exec(
+                select(StockScore)
+                .where(StockScore.stock_id == stock.id)
                 .order_by(StockScore.calculated_at.desc())
-                .first()
-            )
+            ).first()
 
             alert = Alert(
                 stock_id=stock.id,
@@ -304,16 +304,16 @@ class AlertChecker:
             List of (Alert, ticker) tuples
         """
         with get_session() as session:
-            query = session.query(Alert, Stock.ticker).join(Stock, Alert.stock_id == Stock.id)
+            stmt = select(Alert, Stock.ticker).join(Stock, Alert.stock_id == Stock.id)
 
             if ticker:
-                query = query.filter(Stock.ticker == ticker.upper())
+                stmt = stmt.where(Stock.ticker == ticker.upper())
             if active_only:
-                query = query.filter(Alert.is_active == True)
+                stmt = stmt.where(Alert.is_active == True)
             if triggered_only:
-                query = query.filter(Alert.is_triggered == True)
+                stmt = stmt.where(Alert.is_triggered == True)
 
-            results = query.all()
+            results = session.exec(stmt).all()
 
             # Refresh and expunge Alert objects to prevent DetachedInstanceError
             refreshed = []
@@ -341,18 +341,20 @@ class AlertChecker:
             List of (AlertHistory, ticker, alert_type) tuples
         """
         with get_session() as session:
-            query = (
-                session.query(AlertHistory, Stock.ticker, Alert.alert_type)
+            stmt = (
+                select(AlertHistory, Stock.ticker, Alert.alert_type)
                 .join(Alert, AlertHistory.alert_id == Alert.id)
                 .join(Stock, Alert.stock_id == Stock.id)
             )
 
             if ticker:
-                query = query.filter(Stock.ticker == ticker.upper())
+                stmt = stmt.where(Stock.ticker == ticker.upper())
             if unacknowledged_only:
-                query = query.filter(AlertHistory.acknowledged == False)
+                stmt = stmt.where(AlertHistory.acknowledged == False)
 
-            results = query.order_by(AlertHistory.triggered_at.desc()).limit(limit).all()
+            results = session.exec(
+                stmt.order_by(AlertHistory.triggered_at.desc()).limit(limit)
+            ).all()
 
             # Refresh and expunge AlertHistory objects to prevent DetachedInstanceError
             refreshed = []
@@ -374,7 +376,9 @@ class AlertChecker:
             True if acknowledged, False if not found
         """
         with get_session() as session:
-            history = session.query(AlertHistory).filter(AlertHistory.id == alert_history_id).first()
+            history = session.exec(
+                select(AlertHistory).where(AlertHistory.id == alert_history_id)
+            ).first()
             if not history:
                 return False
 
@@ -395,12 +399,16 @@ class AlertChecker:
             True if removed, False if not found
         """
         with get_session() as session:
-            alert = session.query(Alert).filter(Alert.id == alert_id).first()
+            alert = session.exec(select(Alert).where(Alert.id == alert_id)).first()
             if not alert:
                 return False
 
             # Delete associated history
-            session.query(AlertHistory).filter(AlertHistory.alert_id == alert_id).delete()
+            histories = session.exec(
+                select(AlertHistory).where(AlertHistory.alert_id == alert_id)
+            ).all()
+            for h in histories:
+                session.delete(h)
             session.delete(alert)
             session.commit()
         return True

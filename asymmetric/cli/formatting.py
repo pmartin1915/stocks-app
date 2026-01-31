@@ -6,6 +6,27 @@ Mirrors the dashboard's visual language using Rich markup instead of HTML/SVG.
 
 from typing import Optional
 
+from rich.console import Console
+
+
+# =============================================================================
+# Standard Padding & Borders
+# =============================================================================
+
+# Panel/Table padding standards
+PANEL_PADDING = (1, 2)
+TABLE_PADDING = (0, 2)
+
+# Border style semantics (see docs/color-conventions.md)
+BORDER_PRIMARY = "blue"      # Main content panels
+BORDER_SUCCESS = "green"     # Success/confirmation panels
+BORDER_METADATA = "dim"      # Secondary/metadata panels
+BORDER_WARNING = "yellow"    # Warning panels
+BORDER_ERROR = "red"         # Error/alert panels
+
+# Missing value indicator
+MISSING = "-"
+
 
 # =============================================================================
 # Score Color Functions
@@ -80,30 +101,30 @@ def get_zscore_verdict(zone: str) -> tuple[str, str]:
 
 
 # =============================================================================
-# Signal Indicators (Unicode symbols for terminal)
+# Signal Indicators (ASCII-safe for Windows compatibility)
 # =============================================================================
 
 
 class Signals:
-    """Unicode signal indicators for CLI display.
+    """ASCII signal indicators for CLI display.
 
-    Uses clean Unicode symbols that render consistently across terminals.
-    Avoids emoji for cross-platform compatibility.
+    Uses ASCII characters for Windows cp1252 compatibility.
+    Avoids Unicode symbols that may not render on all terminals.
     """
 
-    # Pass/Fail indicators
-    CHECK = "✓"
-    CROSS = "✗"
+    # Pass/Fail indicators (ASCII-safe)
+    CHECK = "+"
+    CROSS = "-"
     TILDE = "~"
-    WARNING = "⚠"
+    WARNING = "!"
 
-    # Winner/rank indicators (Unicode symbols, not emoji)
-    WINNER = "◆"      # Solid diamond - marks the best option
-    STAR = "★"        # Filled star - for ratings
-    STAR_EMPTY = "☆"  # Empty star - for ratings
-    BULLET = "●"      # Solid bullet - for lists/ranking
-    ARROW_UP = "▲"    # Up arrow - improvement
-    ARROW_DOWN = "▼"  # Down arrow - decline
+    # Winner/rank indicators (ASCII-safe)
+    WINNER = "*"      # Asterisk - marks the best option
+    STAR = "*"        # Asterisk - for ratings
+    STAR_EMPTY = "o"  # Letter o - for ratings
+    BULLET = "*"      # Asterisk - for lists/ranking
+    ARROW_UP = "^"    # Caret - improvement
+    ARROW_DOWN = "v"  # Letter v - decline
 
 
 def signal_indicator(passed: Optional[bool]) -> tuple[str, str]:
@@ -195,10 +216,10 @@ def get_quick_signals(piotroski_result: dict, altman_result: dict) -> list[tuple
 
 
 def make_progress_bar(value: float, max_value: float, width: int = 10) -> str:
-    """Create a text-based progress bar."""
+    """Create a text-based progress bar using ASCII characters."""
     filled = int((value / max_value) * width)
     empty = width - filled
-    return "█" * filled + "░" * empty
+    return "#" * filled + "-" * empty
 
 
 # =============================================================================
@@ -252,3 +273,49 @@ def winner_indicator(is_winner: bool) -> str:
     if is_winner:
         return f" {Signals.WINNER}"
     return ""
+
+
+# =============================================================================
+# Helper Functions for Consistent Output
+# =============================================================================
+
+
+def format_missing(value, default: str = MISSING):
+    """
+    Return value or standard missing indicator.
+
+    Args:
+        value: The value to check
+        default: Fallback for None values (default: "-")
+
+    Returns:
+        Original value if not None, else default
+    """
+    return value if value is not None else default
+
+
+def print_next_steps(console: Console, steps: list[tuple[str, str]]) -> None:
+    """
+    Print standardized next-step hints.
+
+    Args:
+        console: Rich console instance
+        steps: List of (label, command) tuples
+    """
+    console.print()
+    console.print("[dim]Next steps:[/dim]")
+    for label, cmd in steps:
+        console.print(f"  [dim]{label}:[/dim]  {cmd}")
+
+
+def print_empty_state(console: Console, entity: str, hint: str) -> None:
+    """
+    Print standardized empty state message.
+
+    Args:
+        console: Rich console instance
+        entity: What's empty (e.g., "watchlist", "theses")
+        hint: Command to get started
+    """
+    console.print(f"[yellow]No {entity} found.[/yellow]")
+    console.print(f"[dim]Get started: {hint}[/dim]")

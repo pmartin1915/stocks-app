@@ -46,12 +46,25 @@ def thesis(ctx: click.Context) -> None:
     default="draft",
     help="Initial thesis status",
 )
+@click.option(
+    "--conviction",
+    type=click.IntRange(1, 5),
+    default=None,
+    help="Conviction level (1=speculative, 5=very high)",
+)
+@click.option(
+    "--conviction-rationale",
+    default=None,
+    help="Brief explanation for conviction level",
+)
 @click.pass_context
 def thesis_create(
     ctx: click.Context,
     ticker: str,
     auto: bool,
     status: str,
+    conviction: int | None,
+    conviction_rationale: str | None,
 ) -> None:
     """
     Create a new investment thesis.
@@ -74,9 +87,9 @@ def thesis_create(
         init_db()
 
         if auto:
-            _create_auto_thesis(console, ticker, status)
+            _create_auto_thesis(console, ticker, status, conviction, conviction_rationale)
         else:
-            _create_manual_thesis(console, ticker, status)
+            _create_manual_thesis(console, ticker, status, conviction, conviction_rationale)
 
     except GeminiConfigError as e:
         console.print(f"[red]Gemini not configured:[/red] {e}")
@@ -92,7 +105,13 @@ def thesis_create(
         raise SystemExit(1)
 
 
-def _create_auto_thesis(console: Console, ticker: str, status: str) -> None:
+def _create_auto_thesis(
+    console: Console,
+    ticker: str,
+    status: str,
+    conviction: int | None,
+    conviction_rationale: str | None,
+) -> None:
     """Create thesis using AI generation."""
     from asymmetric.core.ai.gemini_client import GeminiModel, get_gemini_client
     from asymmetric.core.data.edgar_client import EdgarClient
@@ -148,6 +167,8 @@ Format your response with clear section headers."""
             ai_tokens_output=result.token_count_output,
             cached=result.cached,
             status=status,
+            conviction=conviction,
+            conviction_rationale=conviction_rationale,
         )
         session.add(thesis)
         session.flush()
@@ -169,7 +190,13 @@ Format your response with clear section headers."""
     console.print(f"[dim]View full thesis: asymmetric thesis view {thesis_id}[/dim]")
 
 
-def _create_manual_thesis(console: Console, ticker: str, status: str) -> None:
+def _create_manual_thesis(
+    console: Console,
+    ticker: str,
+    status: str,
+    conviction: int | None,
+    conviction_rationale: str | None,
+) -> None:
     """Create thesis with manual input."""
     from asymmetric.db import get_session, Thesis
     from asymmetric.db.database import get_or_create_stock
@@ -207,6 +234,8 @@ def _create_manual_thesis(console: Console, ticker: str, status: str) -> None:
             bull_case=bull_case if bull_case else None,
             bear_case=bear_case if bear_case else None,
             status=status,
+            conviction=conviction,
+            conviction_rationale=conviction_rationale,
         )
         session.add(thesis)
         session.flush()
@@ -281,6 +310,7 @@ def thesis_list(ctx: click.Context, status: str, as_json: bool) -> None:
                         "ticker": t.stock.ticker if t.stock else "Unknown",
                         "summary": t.summary,
                         "status": t.status,
+                        "conviction": t.conviction,
                         "ai_generated": bool(t.ai_model),
                         "created_at": t.created_at.isoformat() if t.created_at else None,
                     }
@@ -307,6 +337,7 @@ def _display_thesis_list(console: Console, theses) -> None:
     table.add_column("Ticker", style="bold")
     table.add_column("Summary")
     table.add_column("Status")
+    table.add_column("Conv", justify="center")
     table.add_column("AI", justify="center")
     table.add_column("Created")
 
@@ -320,6 +351,7 @@ def _display_thesis_list(console: Console, theses) -> None:
         ticker = t.stock.ticker if t.stock else "Unknown"
         summary = (t.summary[:50] + "...") if len(t.summary) > 50 else t.summary
         status_color = status_colors.get(t.status, "white")
+        conviction_str = f"{'*' * t.conviction}{'.' * (5 - t.conviction)}" if t.conviction else "[dim]-[/dim]"
         ai_marker = "[green]Y[/green]" if t.ai_model else "[dim]-[/dim]"
         created = t.created_at.strftime("%Y-%m-%d") if t.created_at else "-"
 
@@ -328,6 +360,7 @@ def _display_thesis_list(console: Console, theses) -> None:
             ticker,
             summary,
             f"[{status_color}]{t.status}[/{status_color}]",
+            conviction_str,
             ai_marker,
             created,
         )
@@ -374,6 +407,8 @@ def thesis_view(ctx: click.Context, thesis_id: int, as_json: bool) -> None:
                     "bear_case": thesis.bear_case,
                     "key_metrics": thesis.key_metrics,
                     "status": thesis.status,
+                    "conviction": thesis.conviction,
+                    "conviction_rationale": thesis.conviction_rationale,
                     "ai_model": thesis.ai_model,
                     "ai_cost_usd": thesis.ai_cost_usd,
                     "created_at": thesis.created_at.isoformat() if thesis.created_at else None,
@@ -399,7 +434,13 @@ def _display_thesis(console: Console, thesis) -> None:
     status_color = status_colors.get(thesis.status, "white")
 
     console.print(f"[bold]Investment Thesis: {ticker}[/bold]")
-    console.print(f"[dim]ID: {thesis.id} | Status: [{status_color}]{thesis.status}[/{status_color}][/dim]")
+    header_parts = [f"ID: {thesis.id}", f"Status: [{status_color}]{thesis.status}[/{status_color}]"]
+    if thesis.conviction:
+        conviction_display = f"{'*' * thesis.conviction}{'.' * (5 - thesis.conviction)} ({thesis.conviction}/5)"
+        header_parts.append(f"Conviction: {conviction_display}")
+    console.print(f"[dim]{' | '.join(header_parts)}[/dim]")
+    if thesis.conviction_rationale:
+        console.print(f"[dim italic]\"{thesis.conviction_rationale}\"[/dim italic]")
     console.print()
 
     # Summary
@@ -477,6 +518,17 @@ def _display_thesis(console: Console, thesis) -> None:
 )
 @click.option("--bull-case", default=None, help="Update bull case")
 @click.option("--bear-case", default=None, help="Update bear case")
+@click.option(
+    "--conviction",
+    type=click.IntRange(1, 5),
+    default=None,
+    help="Update conviction level (1=speculative, 5=very high)",
+)
+@click.option(
+    "--conviction-rationale",
+    default=None,
+    help="Update conviction rationale",
+)
 @click.pass_context
 def thesis_update(
     ctx: click.Context,
@@ -485,6 +537,8 @@ def thesis_update(
     status: str | None,
     bull_case: str | None,
     bear_case: str | None,
+    conviction: int | None,
+    conviction_rationale: str | None,
 ) -> None:
     """
     Update an existing thesis.
@@ -493,12 +547,13 @@ def thesis_update(
     Examples:
         asymmetric thesis update 1 --status active
         asymmetric thesis update 1 --summary "Updated thesis summary"
+        asymmetric thesis update 1 --conviction 4 --conviction-rationale "Strong moat"
     """
     console: Console = ctx.obj["console"]
 
     # Check if any updates provided
-    if all(v is None for v in [summary, status, bull_case, bear_case]):
-        console.print("[yellow]No updates provided. Use --summary, --status, --bull-case, or --bear-case[/yellow]")
+    if all(v is None for v in [summary, status, bull_case, bear_case, conviction, conviction_rationale]):
+        console.print("[yellow]No updates provided. Use --summary, --status, --bull-case, --bear-case, --conviction, or --conviction-rationale[/yellow]")
         raise SystemExit(1)
 
     try:
@@ -527,6 +582,12 @@ def thesis_update(
             if bear_case is not None:
                 t.bear_case = bear_case
                 updates.append("bear_case updated")
+            if conviction is not None:
+                t.conviction = conviction
+                updates.append(f"conviction → {conviction}/5")
+            if conviction_rationale is not None:
+                t.conviction_rationale = conviction_rationale
+                updates.append("conviction_rationale updated")
 
             t.updated_at = datetime.now()
             session.add(t)

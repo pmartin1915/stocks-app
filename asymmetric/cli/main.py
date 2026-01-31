@@ -35,6 +35,8 @@ Usage:
     asymmetric db init
 """
 
+from collections import OrderedDict
+
 import click
 from rich.console import Console
 
@@ -46,21 +48,50 @@ from asymmetric.cli.commands import (
     db,
     decision,
     history,
+    launch,
     lookup,
     mcp_cmd,
     portfolio,
+    quickstart,
     score,
     screen,
     sectors,
+    status,
     thesis,
     watchlist,
 )
+
+
+class OrderedGroup(click.Group):
+    """Custom group that displays commands in organized categories."""
+
+    COMMAND_GROUPS: OrderedDict[str, list[str]] = OrderedDict([
+        ("Research", ["lookup", "score", "compare", "analyze"]),
+        ("Screening", ["screen", "trends"]),
+        ("Tracking", ["watchlist", "portfolio", "thesis", "decision"]),
+        ("Monitoring", ["alerts", "history", "sectors"]),
+        ("Setup", ["db", "mcp", "quickstart", "status", "launch"]),
+    ])
+
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        """Write commands in organized groups."""
+        for group_name, cmd_names in self.COMMAND_GROUPS.items():
+            commands = []
+            for cmd_name in cmd_names:
+                cmd = self.get_command(ctx, cmd_name)
+                if cmd:
+                    help_text = cmd.get_short_help_str(limit=formatter.width)
+                    commands.append((cmd_name, help_text))
+
+            if commands:
+                with formatter.section(group_name):
+                    formatter.write_dl(commands)
 
 # Global console for rich output
 console = Console()
 
 
-@click.group()
+@click.group(cls=OrderedGroup)
 @click.version_option(version=__version__, prog_name="asymmetric")
 @click.pass_context
 def cli(ctx: click.Context) -> None:
@@ -103,6 +134,9 @@ cli.add_command(thesis.thesis)
 cli.add_command(decision.decision)
 cli.add_command(mcp_cmd.mcp)
 cli.add_command(db.db)
+cli.add_command(quickstart.quickstart)
+cli.add_command(status.status)
+cli.add_command(launch.launch)
 
 
 def main() -> None:

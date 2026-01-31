@@ -8,6 +8,7 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 
+from asymmetric.cli.formatting import print_next_steps
 from asymmetric.core.ai.exceptions import (
     AIError,
     GeminiConfigError,
@@ -199,4 +200,11 @@ def _display_analysis(console: Console, ticker: str, section: str, result) -> No
         border_style="blue",
     ))
 
-    console.print()
+    # Next steps
+    print_next_steps(
+        console,
+        [
+            ("Create thesis", f"asymmetric thesis create {ticker} --auto"),
+            ("Record decision", f"asymmetric decision create {ticker} --action buy"),
+        ],
+    )

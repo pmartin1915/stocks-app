@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from asymmetric.cli.formatting import print_next_steps
 from asymmetric.core.data.edgar_client import EdgarClient
 from asymmetric.core.data.exceptions import (
     SECEmptyResponseError,
@@ -78,6 +79,15 @@ def lookup(ctx: click.Context, ticker: str, full: bool) -> None:
                 table.add_row("  [dim]Unable to fetch filings[/dim]", "")
 
         console.print(table)
+
+        # Next steps
+        print_next_steps(
+            console,
+            [
+                ("Calculate scores", f"asymmetric score {ticker}"),
+                ("AI analysis", f"asymmetric analyze {ticker}"),
+            ],
+        )
 
     except SECIdentityError as e:
         console.print(f"[red]SEC Identity Error:[/red] {e}")

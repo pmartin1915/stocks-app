@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
+from sqlmodel import select
+
 from asymmetric.core.data.bulk_manager import BulkDataManager
 from asymmetric.db.database import get_or_create_stock, get_session, get_stock_by_ticker
 from asymmetric.db.models import ScoreHistory, Stock
@@ -121,19 +123,21 @@ class TrendAnalyzer:
             current_year = datetime.now().year
             min_year = current_year - years
 
-            query = (
-                session.query(ScoreHistory)
-                .filter(ScoreHistory.stock_id == stock.id)
-                .filter(ScoreHistory.fiscal_year >= min_year)
+            stmt = (
+                select(ScoreHistory)
+                .where(ScoreHistory.stock_id == stock.id)
+                .where(ScoreHistory.fiscal_year >= min_year)
             )
 
             if period_type == "FY":
-                query = query.filter(ScoreHistory.fiscal_period == "FY")
+                stmt = stmt.where(ScoreHistory.fiscal_period == "FY")
             else:
-                query = query.filter(ScoreHistory.fiscal_period.in_(["Q1", "Q2", "Q3", "Q4"]))
+                stmt = stmt.where(ScoreHistory.fiscal_period.in_(["Q1", "Q2", "Q3", "Q4"]))
 
-            results = query.order_by(
-                ScoreHistory.fiscal_year.desc(), ScoreHistory.fiscal_period.desc()
+            results = session.exec(
+                stmt.order_by(
+                    ScoreHistory.fiscal_year.desc(), ScoreHistory.fiscal_period.desc()
+                )
             ).all()
 
             return [
@@ -405,13 +409,12 @@ class TrendAnalyzer:
                 )
 
             # Check for existing record
-            existing = (
-                session.query(ScoreHistory)
-                .filter(ScoreHistory.stock_id == stock.id)
-                .filter(ScoreHistory.fiscal_year == fiscal_year)
-                .filter(ScoreHistory.fiscal_period == fiscal_period)
-                .first()
-            )
+            existing = session.exec(
+                select(ScoreHistory)
+                .where(ScoreHistory.stock_id == stock.id)
+                .where(ScoreHistory.fiscal_year == fiscal_year)
+                .where(ScoreHistory.fiscal_period == fiscal_period)
+            ).first()
 
             if existing:
                 # Update existing record
@@ -452,10 +455,10 @@ class TrendAnalyzer:
     def _get_tickers_with_history(self) -> list[str]:
         """Get all tickers that have score history."""
         with get_session() as session:
-            results = (
-                session.query(Stock.ticker)
+            stmt = (
+                select(Stock.ticker)
                 .join(ScoreHistory, Stock.id == ScoreHistory.stock_id)
                 .distinct()
-                .all()
             )
-            return [r[0] for r in results]
+            results = session.exec(stmt).all()
+            return [r for r in results]

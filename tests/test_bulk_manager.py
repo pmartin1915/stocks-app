@@ -13,7 +13,7 @@ Integration tests that download actual SEC data are marked with @pytest.mark.slo
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import duckdb
@@ -332,13 +332,13 @@ class TestMetadata:
 
     def test_is_fresh_recent(self, bulk_manager):
         """Test freshness check after recent refresh."""
-        bulk_manager._update_metadata("last_refresh", datetime.utcnow().isoformat())
+        bulk_manager._update_metadata("last_refresh", datetime.now(timezone.utc).isoformat())
 
         assert bulk_manager._is_fresh(max_age_hours=24) is True
 
     def test_is_fresh_old(self, bulk_manager):
         """Test freshness check with old data."""
-        old_time = datetime.utcnow() - timedelta(hours=48)
+        old_time = datetime.now(timezone.utc) - timedelta(hours=48)
         bulk_manager._update_metadata("last_refresh", old_time.isoformat())
 
         assert bulk_manager._is_fresh(max_age_hours=24) is False

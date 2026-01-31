@@ -16,6 +16,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlmodel import select
 from click.testing import CliRunner
 
 from asymmetric.cli.main import cli
@@ -146,8 +147,8 @@ class TestDatabasePersistence:
 
         # Retrieve and verify
         with get_session() as session:
-            saved_score = session.query(StockScore).filter(
-                StockScore.stock_id == stock.id
+            saved_score = session.exec(
+                select(StockScore).where(StockScore.stock_id == stock.id)
             ).first()
 
             assert saved_score is not None
@@ -212,9 +213,11 @@ class TestDatabasePersistence:
 
         # Verify both exist
         with get_session() as session:
-            scores = session.query(StockScore).filter(
-                StockScore.stock_id == stock_id
-            ).order_by(StockScore.fiscal_year.desc()).all()
+            scores = session.exec(
+                select(StockScore)
+                .where(StockScore.stock_id == stock_id)
+                .order_by(StockScore.fiscal_year.desc())
+            ).all()
 
             assert len(scores) == 2
             assert scores[0].fiscal_year == 2023
@@ -255,7 +258,7 @@ class TestDatabasePersistence:
 
         # Query via relationship
         with get_session() as session:
-            stock = session.query(Stock).filter(Stock.ticker == unique_ticker).first()
+            stock = session.exec(select(Stock).where(Stock.ticker == unique_ticker)).first()
             assert stock is not None
             assert len(stock.scores) == 1
             assert stock.scores[0].piotroski_score == p_result.score
@@ -483,7 +486,7 @@ class TestFullPipelineEndToEnd:
 
         # Verify database was updated
         with get_session() as session:
-            scores = session.query(StockScore).all()
+            scores = session.exec(select(StockScore)).all()
             # Should have at least one score saved
             assert len(scores) >= 1
 

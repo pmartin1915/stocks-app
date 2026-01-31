@@ -35,7 +35,7 @@ def portfolio(ctx: click.Context) -> None:
 @portfolio.command("add")
 @click.argument("ticker")
 @click.option("--quantity", "-q", type=float, required=True, help="Number of shares")
-@click.option("--price", "-p", type=float, required=True, help="Price per share")
+@click.option("--price", "-p", type=float, required=True, help="Price per share in USD")
 @click.option("--date", "-d", default=None, help="Transaction date (YYYY-MM-DD)")
 @click.option("--fees", type=float, default=0.0, help="Brokerage fees")
 @click.option("--notes", default="", help="Transaction notes")
@@ -84,7 +84,7 @@ def portfolio_add(
 @portfolio.command("sell")
 @click.argument("ticker")
 @click.option("--quantity", "-q", type=float, required=True, help="Shares to sell")
-@click.option("--price", "-p", type=float, required=True, help="Sale price per share")
+@click.option("--price", "-p", type=float, required=True, help="Sale price per share in USD")
 @click.option("--date", "-d", default=None, help="Sale date (YYYY-MM-DD)")
 @click.option("--fees", type=float, default=0.0, help="Brokerage fees")
 @click.pass_context

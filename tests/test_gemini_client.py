@@ -3,7 +3,7 @@ Tests for the Gemini AI client with context caching.
 """
 
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -87,7 +87,7 @@ class TestCacheEntry:
     def test_cache_entry_expiry(self):
         """Should correctly calculate expiry."""
         # Create an entry that was created long ago (already expired)
-        old_created = datetime.utcnow() - timedelta(seconds=CACHE_TTL_SECONDS + 60)
+        old_created = datetime.now(timezone.utc) - timedelta(seconds=CACHE_TTL_SECONDS + 60)
         entry = CacheEntry(
             cache_name="cache-123",
             content_hash="abc123",

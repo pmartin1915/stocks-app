@@ -39,7 +39,7 @@ def alerts(ctx: click.Context) -> None:
     required=True,
     help="Type of alert",
 )
-@click.option("--threshold", type=float, help="Numeric threshold (for score alerts)")
+@click.option("--threshold", type=float, help="Numeric threshold (F-Score: 0-9, Z-Score: typically 1.0-5.0)")
 @click.option(
     "--zone", type=click.Choice(["Safe", "Grey", "Distress"]), help="Target zone (for zone alerts)"
 )

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from sqlmodel import select
 
 from asymmetric.db.database import get_session
 from asymmetric.db.models import ScoreHistory, Stock
@@ -107,12 +108,11 @@ class TestScoreHistoryModel:
             session.commit()
 
             # Query all records
-            records = (
-                session.query(ScoreHistory)
-                .filter(ScoreHistory.stock_id == stock.id)
+            records = session.exec(
+                select(ScoreHistory)
+                .where(ScoreHistory.stock_id == stock.id)
                 .order_by(ScoreHistory.fiscal_year)
-                .all()
-            )
+            ).all()
 
             assert len(records) == 3
             assert records[0].piotroski_score == 7

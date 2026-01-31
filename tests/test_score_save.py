@@ -3,6 +3,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from click.testing import CliRunner
+from sqlmodel import select
 
 from asymmetric.cli.main import cli
 
@@ -91,7 +92,7 @@ class TestScoreSave:
         from asymmetric.db import get_session, StockScore
 
         with get_session() as session:
-            scores = session.query(StockScore).all()
+            scores = session.exec(select(StockScore)).all()
             # At least one score should exist
             assert len(scores) >= 1
             # Latest score should have valid Piotroski score
@@ -106,7 +107,7 @@ class TestScoreSave:
         from asymmetric.db import get_session, StockScore
 
         with get_session() as session:
-            score = session.query(StockScore).first()
+            score = session.exec(select(StockScore)).first()
             assert score is not None
             assert score.calculated_at is not None
 
@@ -120,7 +121,7 @@ class TestScoreSave:
         from asymmetric.db import get_session, StockScore
 
         with get_session() as session:
-            scores = session.query(StockScore).all()
+            scores = session.exec(select(StockScore)).all()
             # At least one score should exist
             assert len(scores) >= 1
 
@@ -131,7 +132,7 @@ class TestScoreSave:
         from asymmetric.db import get_session, StockScore
 
         with get_session() as session:
-            score = session.query(StockScore).first()
+            score = session.exec(select(StockScore)).first()
             assert score.data_source == "live_api"
 
     def test_score_save_links_to_stock(self, runner, mock_edgar_client, tmp_db):
@@ -141,7 +142,7 @@ class TestScoreSave:
         from asymmetric.db import get_session, StockScore, Stock
 
         with get_session() as session:
-            score = session.query(StockScore).first()
-            stock = session.query(Stock).filter(Stock.ticker == "AAPL").first()
+            score = session.exec(select(StockScore)).first()
+            stock = session.exec(select(Stock).where(Stock.ticker == "AAPL")).first()
             assert stock is not None
             assert score.stock_id == stock.id

@@ -10,7 +10,7 @@ import threading
 from contextlib import contextmanager
 from typing import Generator, Optional
 
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from asymmetric.config import config
 
@@ -156,13 +156,13 @@ def get_stock_by_ticker(session_or_ticker, ticker: str = None) -> Optional["Stoc
     if isinstance(session_or_ticker, Session):
         session = session_or_ticker
         ticker = ticker.upper() if ticker else ""
-        return session.query(Stock).filter(Stock.ticker == ticker).first()
+        return session.exec(select(Stock).where(Stock.ticker == ticker)).first()
     else:
         # Called with just ticker - use new session
         ticker = session_or_ticker.upper() if session_or_ticker else ""
 
         with get_session() as session:
-            stock = session.query(Stock).filter(Stock.ticker == ticker).first()
+            stock = session.exec(select(Stock).where(Stock.ticker == ticker)).first()
             if stock is not None:
                 # Eagerly load all attributes before session closes
                 session.refresh(stock)
@@ -206,7 +206,7 @@ def get_or_create_stock(
         session = session_or_ticker
         ticker = ticker.upper() if ticker else ""
 
-        stock = session.query(Stock).filter(Stock.ticker == ticker).first()
+        stock = session.exec(select(Stock).where(Stock.ticker == ticker)).first()
 
         if stock is None:
             stock = Stock(
@@ -225,7 +225,7 @@ def get_or_create_stock(
         ticker = session_or_ticker.upper() if session_or_ticker else ""
 
         with get_session() as session:
-            stock = session.query(Stock).filter(Stock.ticker == ticker).first()
+            stock = session.exec(select(Stock).where(Stock.ticker == ticker)).first()
 
             if stock is None:
                 stock = Stock(

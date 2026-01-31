@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+from sqlmodel import select
 
 from asymmetric.db.database import (
     get_engine,
@@ -94,7 +95,7 @@ class TestSessionManagement:
 
         # Verify data persisted
         with get_session() as session:
-            result = session.query(Stock).filter(Stock.ticker == "AAPL").first()
+            result = session.exec(select(Stock).where(Stock.ticker == "AAPL")).first()
             assert result is not None
             assert result.company_name == "Apple Inc."
 
@@ -110,7 +111,7 @@ class TestSessionManagement:
 
         # Verify data was not persisted
         with get_session() as session:
-            result = session.query(Stock).filter(Stock.ticker == "FAIL").first()
+            result = session.exec(select(Stock).where(Stock.ticker == "FAIL")).first()
             assert result is None
 
 
@@ -133,7 +134,7 @@ class TestStockModel:
             session.add(stock)
 
         with get_session() as session:
-            result = session.query(Stock).filter(Stock.ticker == "MSFT").first()
+            result = session.exec(select(Stock).where(Stock.ticker == "MSFT")).first()
             assert result.ticker == "MSFT"
             assert result.cik == "0000789019"
             assert result.sic_code == "7372"
@@ -185,7 +186,7 @@ class TestStockScoreModel:
             session.add(score)
 
         with get_session() as session:
-            result = session.query(StockScore).first()
+            result = session.exec(select(StockScore)).first()
             assert result.piotroski_score == 7
             assert result.altman_z_score == 3.5
             assert result.altman_zone == "Safe"
@@ -220,7 +221,7 @@ class TestThesisModel:
             session.add(thesis)
 
         with get_session() as session:
-            result = session.query(Thesis).first()
+            result = session.exec(select(Thesis)).first()
             assert result.summary == "Strong buy based on financials"
             assert result.ai_model == "gemini-2.5-pro"
             assert result.status == "active"
@@ -258,7 +259,7 @@ class TestDecisionModel:
             session.add(decision)
 
         with get_session() as session:
-            result = session.query(Decision).first()
+            result = session.exec(select(Decision)).first()
             assert result.decision == "buy"
             assert result.confidence == 4
             assert result.target_price == 150.0
@@ -281,7 +282,7 @@ class TestScreeningRunModel:
             session.add(run)
 
         with get_session() as session:
-            result = session.query(ScreeningRun).first()
+            result = session.exec(select(ScreeningRun)).first()
             assert result.result_count == 15
             assert "AAPL" in result.result_tickers
             assert result.data_source == "bulk_data"
@@ -383,7 +384,7 @@ class TestRelationships:
             session.add(score2)
 
         with get_session() as session:
-            stock = session.query(Stock).filter(Stock.ticker == "REL1").first()
+            stock = session.exec(select(Stock).where(Stock.ticker == "REL1")).first()
             assert len(stock.scores) == 2
 
     def test_thesis_decisions_relationship(self, temp_db_path):
@@ -417,5 +418,5 @@ class TestRelationships:
             session.add(decision2)
 
         with get_session() as session:
-            thesis = session.query(Thesis).first()
+            thesis = session.exec(select(Thesis)).first()
             assert len(thesis.decisions) == 2

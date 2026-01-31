@@ -38,8 +38,8 @@ class Stock(SQLModel, table=True):
     exchange: Optional[str] = Field(default=None, max_length=20)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     scores: list["StockScore"] = Relationship(back_populates="stock")
@@ -87,7 +87,7 @@ class StockScore(SQLModel, table=True):
     data_source: str = Field(default="bulk_data", max_length=20)  # "bulk_data" or "live_api"
 
     # Timestamps
-    calculated_at: datetime = Field(default_factory=datetime.utcnow)
+    calculated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationship
     stock: Optional[Stock] = Relationship(back_populates="scores")
@@ -122,9 +122,13 @@ class Thesis(SQLModel, table=True):
     # Status tracking
     status: str = Field(default="draft", max_length=20)  # draft, active, archived
 
+    # Conviction tracking
+    conviction: Optional[int] = Field(default=None, ge=1, le=5)  # 1-5 scale
+    conviction_rationale: Optional[str] = Field(default=None, max_length=200)
+
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     stock: Optional[Stock] = Relationship(back_populates="theses")
@@ -153,7 +157,7 @@ class Decision(SQLModel, table=True):
     stop_loss: Optional[float] = None
 
     # Timestamps
-    decided_at: datetime = Field(default_factory=datetime.utcnow)
+    decided_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationship
     thesis: Optional[Thesis] = Relationship(back_populates="decisions")
@@ -181,7 +185,7 @@ class ScreeningRun(SQLModel, table=True):
     data_source: str = Field(default="bulk_data", max_length=20)
 
     # Timestamps
-    run_at: datetime = Field(default_factory=datetime.utcnow)
+    run_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ScoreHistory(SQLModel, table=True):

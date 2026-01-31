@@ -41,7 +41,7 @@ def existing_thesis(tmp_db):
 def existing_decision(tmp_db, existing_thesis):
     """Create a decision for testing view command."""
     from asymmetric.db import get_session, Decision
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     with get_session() as session:
         decision = Decision(
@@ -51,7 +51,7 @@ def existing_decision(tmp_db, existing_thesis):
             confidence=4,
             target_price=150.00,
             stop_loss=120.00,
-            decided_at=datetime.utcnow(),
+            decided_at=datetime.now(timezone.utc),
         )
         session.add(decision)
         session.flush()

@@ -1,7 +1,7 @@
 """Scoring commands for Piotroski F-Score and Altman Z-Score."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import click
 from rich.console import Console
@@ -329,6 +329,6 @@ def _save_score_to_db(ticker: str, results: dict) -> None:
             altman_interpretation=a.get("interpretation") if a and "error" not in a else None,
             altman_formula=a.get("formula_used", "manufacturing") if a else "manufacturing",
             data_source="live_api",
-            calculated_at=datetime.utcnow(),
+            calculated_at=datetime.now(timezone.utc),
         )
         session.add(score_record)

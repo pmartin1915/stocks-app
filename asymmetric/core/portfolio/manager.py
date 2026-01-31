@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
+from sqlmodel import select
+
 from asymmetric.db.database import get_or_create_stock, get_session, get_stock_by_ticker
 from asymmetric.db.models import Stock, StockScore
 from asymmetric.db.portfolio_models import Holding, PortfolioSnapshot, Transaction
@@ -144,7 +146,7 @@ class PortfolioManager:
             session.add(transaction)
 
             # Update or create holding
-            holding = session.query(Holding).filter(Holding.stock_id == stock.id).first()
+            holding = session.exec(select(Holding).where(Holding.stock_id == stock.id)).first()
 
             if holding:
                 # Update existing holding
@@ -208,7 +210,7 @@ class PortfolioManager:
             if not stock:
                 raise ValueError(f"Stock not found: {ticker}")
 
-            holding = session.query(Holding).filter(Holding.stock_id == stock.id).first()
+            holding = session.exec(select(Holding).where(Holding.stock_id == stock.id)).first()
             if not holding or holding.quantity < quantity:
                 available = holding.quantity if holding else 0
                 raise ValueError(
@@ -267,23 +269,22 @@ class PortfolioManager:
             List of HoldingDetail
         """
         with get_session() as session:
-            holdings = session.query(Holding).filter(Holding.quantity > 0).all()
+            holdings = session.exec(select(Holding).where(Holding.quantity > 0)).all()
 
             results = []
             total_value = sum(h.cost_basis_total for h in holdings)
 
             for holding in holdings:
-                stock = session.query(Stock).filter(Stock.id == holding.stock_id).first()
+                stock = session.exec(select(Stock).where(Stock.id == holding.stock_id)).first()
                 if not stock:
                     continue
 
                 # Get latest score
-                latest_score = (
-                    session.query(StockScore)
-                    .filter(StockScore.stock_id == stock.id)
+                latest_score = session.exec(
+                    select(StockScore)
+                    .where(StockScore.stock_id == stock.id)
                     .order_by(StockScore.calculated_at.desc())
-                    .first()
-                )
+                ).first()
 
                 detail = HoldingDetail(
                     ticker=stock.ticker,
@@ -337,15 +338,15 @@ class PortfolioManager:
         """
         with get_session() as session:
             # Get all holdings
-            holdings = session.query(Holding).filter(Holding.quantity > 0).all()
+            holdings = session.exec(select(Holding).where(Holding.quantity > 0)).all()
 
             total_cost_basis = sum(h.cost_basis_total for h in holdings)
             position_count = len(holdings)
 
             # Calculate realized P&L from all sell transactions
-            sell_transactions = (
-                session.query(Transaction).filter(Transaction.transaction_type == "sell").all()
-            )
+            sell_transactions = session.exec(
+                select(Transaction).where(Transaction.transaction_type == "sell")
+            ).all()
 
             realized_pnl_total = sum(t.realized_gain or 0 for t in sell_transactions)
 
@@ -359,9 +360,9 @@ class PortfolioManager:
             realized_pnl_ytd = sum(t.realized_gain or 0 for t in ytd_sells)
 
             # Cash flow calculations
-            buy_transactions = (
-                session.query(Transaction).filter(Transaction.transaction_type == "buy").all()
-            )
+            buy_transactions = session.exec(
+                select(Transaction).where(Transaction.transaction_type == "buy")
+            ).all()
             cash_invested = sum(t.total_cost for t in buy_transactions)
             cash_received = sum(t.total_proceeds for t in sell_transactions)
 
@@ -391,18 +392,18 @@ class PortfolioManager:
             List of TransactionRecord, newest first
         """
         with get_session() as session:
-            query = session.query(Transaction).join(Stock, Transaction.stock_id == Stock.id)
+            stmt = select(Transaction).join(Stock, Transaction.stock_id == Stock.id)
 
             if ticker:
-                query = query.filter(Stock.ticker == ticker.upper())
+                stmt = stmt.where(Stock.ticker == ticker.upper())
 
-            transactions = (
-                query.order_by(Transaction.transaction_date.desc()).limit(limit).all()
-            )
+            transactions = session.exec(
+                stmt.order_by(Transaction.transaction_date.desc()).limit(limit)
+            ).all()
 
             results = []
             for t in transactions:
-                stock = session.query(Stock).filter(Stock.id == t.stock_id).first()
+                stock = session.exec(select(Stock).where(Stock.id == t.stock_id)).first()
                 results.append(
                     TransactionRecord(
                         id=t.id,

@@ -11,7 +11,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 from rich.table import Table
 from rich.text import Text
 
-from asymmetric.cli.formatting import get_score_color, get_zone_color
+from asymmetric.cli.formatting import get_score_color, get_zone_color, print_next_steps
 from asymmetric.core.data.bulk_manager import BulkDataManager
 from asymmetric.core.data.exceptions import (
     InsufficientDataError,
@@ -78,6 +78,18 @@ logger = logging.getLogger(__name__)
     is_flag=True,
     help="Add passing stocks to watchlist",
 )
+@click.option(
+    "--sector",
+    type=str,
+    default=None,
+    help="Filter by sector (e.g., 'Technology', 'Healthcare')",
+)
+@click.option(
+    "--industry",
+    type=str,
+    default=None,
+    help="Filter by industry (e.g., 'Software', 'Pharmaceuticals')",
+)
 @click.pass_context
 def screen(
     ctx: click.Context,
@@ -90,6 +102,8 @@ def screen(
     sort_order: str,
     as_json: bool,
     add_to_watchlist: bool,
+    sector: str | None,
+    industry: str | None,
 ) -> None:
     """
     Screen stocks by quantitative criteria.
@@ -214,6 +228,23 @@ def screen(
                     # Get company info for display
                     company_info = bulk.get_company_info(ticker)
                     company_name = company_info.get("company_name", "") if company_info else ""
+                    sic_code = company_info.get("sic_code", "") if company_info else ""
+
+                    # Apply sector/industry filters if specified
+                    stock_sector = ""
+                    stock_industry = ""
+                    if sector or industry:
+                        from asymmetric.core.data.sic_codes import get_sector_from_sic
+                        if sic_code:
+                            sector_info = get_sector_from_sic(sic_code)
+                            if sector_info:
+                                stock_sector = sector_info.sector
+                                stock_industry = sector_info.industry
+
+                        if sector and stock_sector.lower() != sector.lower():
+                            continue
+                        if industry and stock_industry.lower() != industry.lower():
+                            continue
 
                     results.append({
                         "ticker": ticker,
@@ -222,6 +253,8 @@ def screen(
                         "piotroski_interpretation": piotroski_result.interpretation,
                         "altman_z_score": round(altman_result.z_score, 2),
                         "altman_zone": altman_result.zone,
+                        "sector": stock_sector,
+                        "industry": stock_industry,
                     })
 
                 except Exception as e:
@@ -249,6 +282,10 @@ def screen(
             criteria["altman_min"] = altman_min
         if altman_zone is not None:
             criteria["altman_zone"] = altman_zone
+        if sector is not None:
+            criteria["sector"] = sector
+        if industry is not None:
+            criteria["industry"] = industry
 
         output = {
             "criteria": criteria,
@@ -335,7 +372,18 @@ def _display_results(console: Console, output: dict) -> None:
     if stats["skipped"] > 0:
         console.print(f"[dim]Skipped (insufficient data): {stats['skipped']}[/dim]")
 
-    console.print()
+    # Next steps (only if results exist)
+    if results:
+        first_ticker = results[0]["ticker"]
+        print_next_steps(
+            console,
+            [
+                ("Score details", f"asymmetric score {first_ticker} --detail"),
+                ("Add to watchlist", f"asymmetric watchlist add {first_ticker}"),
+            ],
+        )
+    else:
+        console.print()
 
 
 def _add_results_to_watchlist(results: list[dict], criteria: dict) -> int:
