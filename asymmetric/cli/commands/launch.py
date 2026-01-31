@@ -42,8 +42,14 @@ def find_available_port(start: int = 8501, end: int = 8520) -> int:
     type=int,
     help="Dashboard port (0 = auto-detect available port)",
 )
+@click.option(
+    "-q",
+    "--quiet",
+    is_flag=True,
+    help="Suppress status output (only show errors)",
+)
 @click.pass_context
-def launch(ctx: click.Context, no_browser: bool, with_mcp: bool, port: int) -> None:
+def launch(ctx: click.Context, no_browser: bool, with_mcp: bool, port: int, quiet: bool) -> None:
     """
     Launch the Asymmetric dashboard.
 
@@ -56,46 +62,55 @@ def launch(ctx: click.Context, no_browser: bool, with_mcp: bool, port: int) -> N
         asymmetric launch --with-mcp   # Start dashboard + MCP server
         asymmetric launch --no-browser # Headless mode (for servers)
         asymmetric launch --port 8080  # Custom port
+        asymmetric launch -q           # Quiet mode (suppress output)
     """
     console: Console = ctx.obj["console"]
 
-    console.print("[bold]Pre-flight checks...[/bold]")
-    console.print()
+    def log(msg: str) -> None:
+        """Print message unless quiet mode is enabled."""
+        if not quiet:
+            console.print(msg)
+
+    log("[bold]Pre-flight checks...[/bold]")
+    log("")
 
     # Check database
     if not config.db_path.exists():
-        console.print("[yellow]![/yellow] Database not initialized")
+        log("[yellow]![/yellow] Database not initialized")
 
-        if click.confirm("Initialize database now?", default=True):
+        if not quiet and click.confirm("Initialize database now?", default=True):
             from asymmetric.db import init_db
 
             init_db()
-            console.print("[green]+[/green] Database initialized")
-            console.print()
-            console.print(
-                "[dim]TIP: Run 'asymmetric db refresh' to download SEC bulk data[/dim]"
-            )
-            console.print()
+            log("[green]+[/green] Database initialized")
+            log("")
+            log("[dim]TIP: Run 'asymmetric db refresh' to download SEC bulk data[/dim]")
+            log("")
+        elif quiet:
+            # In quiet mode, auto-initialize without prompting
+            from asymmetric.db import init_db
+
+            init_db()
         else:
             console.print("[red]x[/red] Cannot proceed without database")
             raise SystemExit(1)
     else:
-        console.print("[green]+[/green] Database found")
+        log("[green]+[/green] Database found")
 
     # Check SEC_IDENTITY
     sec_identity = config.sec_identity
     if not sec_identity or "your-email" in sec_identity.lower():
-        console.print("[yellow]![/yellow] SEC_IDENTITY not configured in .env")
-        console.print("[dim]Some features may not work without valid SEC identity[/dim]")
+        log("[yellow]![/yellow] SEC_IDENTITY not configured in .env")
+        log("[dim]Some features may not work without valid SEC identity[/dim]")
     else:
-        console.print("[green]+[/green] SEC_IDENTITY configured")
+        log("[green]+[/green] SEC_IDENTITY configured")
 
-    console.print()
+    log("")
 
     # Start MCP server if requested
     mcp_process = None
     if with_mcp:
-        console.print("[cyan]Starting MCP server on port 8765...[/cyan]")
+        log("[cyan]Starting MCP server on port 8765...[/cyan]")
         try:
             # Windows-specific: create new console window
             if sys.platform == "win32":
@@ -126,9 +141,9 @@ def launch(ctx: click.Context, no_browser: bool, with_mcp: bool, port: int) -> N
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
-            console.print("[green]+[/green] MCP server starting")
+            log("[green]+[/green] MCP server starting")
         except Exception as e:
-            console.print(f"[yellow]![/yellow] Failed to start MCP server: {e}")
+            log(f"[yellow]![/yellow] Failed to start MCP server: {e}")
 
     # Find dashboard path
     dashboard_path = Path(__file__).parent.parent.parent.parent / "dashboard" / "app.py"
@@ -138,10 +153,10 @@ def launch(ctx: click.Context, no_browser: bool, with_mcp: bool, port: int) -> N
 
     # Auto-detect port if not specified
     if port == 0:
-        console.print("[cyan]Finding available port...[/cyan]")
+        log("[cyan]Finding available port...[/cyan]")
         try:
             port = find_available_port()
-            console.print(f"[green]+[/green] Using port {port}")
+            log(f"[green]+[/green] Using port {port}")
         except RuntimeError as e:
             console.print(f"[red]x[/red] {e}")
             raise SystemExit(1)
@@ -150,18 +165,18 @@ def launch(ctx: click.Context, no_browser: bool, with_mcp: bool, port: int) -> N
 
     # Open browser
     if not no_browser:
-        console.print(f"[cyan]Opening browser to {url}...[/cyan]")
+        log(f"[cyan]Opening browser to {url}...[/cyan]")
         webbrowser.open(url)
 
-    console.print()
-    console.print("[bold green]Dashboard starting...[/bold green]")
-    console.print()
-    console.print(f"  Dashboard: {url}")
+    log("")
+    log("[bold green]Dashboard starting...[/bold green]")
+    log("")
+    log(f"  Dashboard: {url}")
     if with_mcp:
-        console.print("  MCP Server: http://localhost:8765")
-    console.print()
-    console.print("[dim]Press Ctrl+C to stop[/dim]")
-    console.print()
+        log("  MCP Server: http://localhost:8765")
+    log("")
+    log("[dim]Press Ctrl+C to stop[/dim]")
+    log("")
 
     try:
         # Run streamlit
@@ -179,22 +194,21 @@ def launch(ctx: click.Context, no_browser: bool, with_mcp: bool, port: int) -> N
             ]
         )
     except KeyboardInterrupt:
-        console.print()
-        console.print("[yellow]Dashboard stopped[/yellow]")
+        log("")
+        log("[yellow]Dashboard stopped[/yellow]")
     finally:
         if mcp_process and sys.platform != "win32":
             # On Unix, terminate the background MCP process
             mcp_process.terminate()
-            console.print("[dim]MCP server stopped[/dim]")
+            log("[dim]MCP server stopped[/dim]")
         elif mcp_process and sys.platform == "win32":
-            console.print(
-                "[dim]Note: MCP server may still be running in separate window[/dim]"
-            )
+            log("[dim]Note: MCP server may still be running in separate window[/dim]")
 
-    print_next_steps(
-        console,
-        [
-            ("Check status", "asymmetric status"),
-            ("View quickstart", "asymmetric quickstart"),
-        ],
-    )
+    if not quiet:
+        print_next_steps(
+            console,
+            [
+                ("Check status", "asymmetric status"),
+                ("View quickstart", "asymmetric quickstart"),
+            ],
+        )
