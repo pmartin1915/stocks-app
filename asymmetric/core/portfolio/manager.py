@@ -351,7 +351,7 @@ class PortfolioManager:
             realized_pnl_total = sum(t.realized_gain or 0 for t in sell_transactions)
 
             # YTD realized P&L
-            current_year = datetime.now().year
+            current_year = datetime.now(timezone.utc).year
             ytd_sells = [
                 t
                 for t in sell_transactions

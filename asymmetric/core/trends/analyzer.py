@@ -120,7 +120,7 @@ class TrendAnalyzer:
                 return []
 
             # Query score history
-            current_year = datetime.now().year
+            current_year = datetime.now(timezone.utc).year
             min_year = current_year - years
 
             stmt = (

@@ -246,15 +246,10 @@ Running at: http://localhost:8502 (background task be3250f)
 ### Known Issues / Technical Debt
 
 1. **Deprecation Warnings** (non-blocking):
-   - `datetime.utcnow()` should be `datetime.now(datetime.UTC)` in multiple files
    - `session.query()` should be `session.exec()` in SQLModel code
    - `google.generativeai` package deprecated, should migrate to `google.genai`
 
-2. **Missing Features** (optional enhancements):
-   - `asymmetric screen` command mentioned in CLAUDE.md but not implemented
-   - No git commits yet - repository is fresh
-
-3. **Rate Limiting Note**:
+2. **Rate Limiting Note**:
    - SEC_IDENTITY currently using `user@example.com` placeholder
    - Works for testing but should use real email for production
 

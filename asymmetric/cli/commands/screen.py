@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -421,7 +421,7 @@ def _add_results_to_watchlist(results: list[dict], criteria: dict) -> int:
     criteria_note = f"Screen: {', '.join(criteria_parts)}" if criteria_parts else "Screen result"
 
     # Add each result
-    now = datetime.now().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     added_count = 0
 
     for r in results:

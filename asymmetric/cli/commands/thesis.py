@@ -1,7 +1,7 @@
 """Thesis management commands for investment decision tracking."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import click
 from sqlmodel import select
@@ -12,7 +12,6 @@ from rich.table import Table
 
 from asymmetric.cli.formatting import print_next_steps
 from asymmetric.core.ai.exceptions import AIError, GeminiConfigError
-from asymmetric.core.data.exceptions import SECRateLimitError
 
 
 @click.group()
@@ -589,7 +588,7 @@ def thesis_update(
                 t.conviction_rationale = conviction_rationale
                 updates.append("conviction_rationale updated")
 
-            t.updated_at = datetime.now()
+            t.updated_at = datetime.now(timezone.utc)
             session.add(t)
             session.commit()
 

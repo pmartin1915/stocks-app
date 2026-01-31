@@ -1,7 +1,7 @@
 """Watchlist command for saving and reviewing stock picks."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
@@ -78,13 +78,13 @@ def add(ctx: click.Context, ticker: str, note: str) -> None:
         console.print(f"[yellow]{ticker} is already on your watchlist[/yellow]")
         if note:
             wl["stocks"][ticker]["note"] = note
-            wl["stocks"][ticker]["updated"] = datetime.now().isoformat()
+            wl["stocks"][ticker]["updated"] = datetime.now(timezone.utc).isoformat()
             _save_watchlist(wl)
             console.print(f"[dim]Updated note for {ticker}[/dim]")
         return
 
     wl["stocks"][ticker] = {
-        "added": datetime.now().isoformat(),
+        "added": datetime.now(timezone.utc).isoformat(),
         "note": note,
     }
     _save_watchlist(wl)
@@ -230,7 +230,7 @@ def review(ctx: click.Context, refresh: bool) -> None:
 
                         # Update cached scores
                         wl["stocks"][ticker]["cached_scores"] = result
-                        wl["stocks"][ticker]["cached_at"] = datetime.now().isoformat()
+                        wl["stocks"][ticker]["cached_at"] = datetime.now(timezone.utc).isoformat()
                 except Exception:
                     pass
 

@@ -1,7 +1,6 @@
 """Decision tracking commands for investment actions."""
 
 import json
-import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -442,17 +441,19 @@ def decision_update(
             session.add(d)
             session.commit()
 
+            # Get ticker for next steps hint
+            ticker = d.thesis.stock.ticker if d.thesis and d.thesis.stock else None
+
             console.print(f"[green]+[/green] Decision #{decision_id} updated:")
             for u in updates:
                 console.print(f"  • {u}")
 
-            print_next_steps(
-                console,
-                [
-                    ("View decision", f"asymmetric decision view {decision_id}"),
-                    ("List decisions", f"asymmetric decision list {ticker}"),
-                ],
-            )
+            next_steps = [("View decision", f"asymmetric decision view {decision_id}")]
+            if ticker:
+                next_steps.append(("List decisions", f"asymmetric decision list --ticker {ticker}"))
+            else:
+                next_steps.append(("List decisions", "asymmetric decision list"))
+            print_next_steps(console, next_steps)
 
     except Exception as e:
         if not isinstance(e, SystemExit):
@@ -504,13 +505,13 @@ def decision_delete(ctx: click.Context, decision_id: int, yes: bool) -> None:
 
             console.print(f"[green]+[/green] Decision #{decision_id} deleted")
 
-            print_next_steps(
-                console,
-                [
-                    ("List decisions", f"asymmetric decision list {ticker}"),
-                    ("View thesis", f"asymmetric thesis list"),
-                ],
-            )
+            next_steps = []
+            if ticker:
+                next_steps.append(("List decisions", f"asymmetric decision list --ticker {ticker}"))
+            else:
+                next_steps.append(("List decisions", "asymmetric decision list"))
+            next_steps.append(("View theses", "asymmetric thesis list"))
+            print_next_steps(console, next_steps)
 
     except Exception as e:
         if not isinstance(e, SystemExit):
