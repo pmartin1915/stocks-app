@@ -4,11 +4,13 @@ import json
 from datetime import datetime
 
 import click
+from sqlmodel import select
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 
+from asymmetric.cli.formatting import print_next_steps
 from asymmetric.core.ai.exceptions import AIError, GeminiConfigError
 from asymmetric.core.data.exceptions import SECRateLimitError
 
@@ -36,7 +38,7 @@ def thesis(ctx: click.Context) -> None:
 @click.option(
     "--auto",
     is_flag=True,
-    help="Auto-generate thesis using AI",
+    help="Generate thesis using AI analysis of 10-K filing (uses Gemini Pro)",
 )
 @click.option(
     "--status",
@@ -264,13 +266,13 @@ def thesis_list(ctx: click.Context, status: str, as_json: bool) -> None:
         init_db()
 
         with get_session() as session:
-            query = session.query(Thesis).join(Stock)
+            stmt = select(Thesis).join(Stock)
 
             if status != "all":
-                query = query.filter(Thesis.status == status)
+                stmt = stmt.where(Thesis.status == status)
 
-            query = query.order_by(Thesis.created_at.desc())
-            theses = query.all()
+            stmt = stmt.order_by(Thesis.created_at.desc())
+            theses = session.exec(stmt).all()
 
             if as_json:
                 output = [
@@ -356,7 +358,7 @@ def thesis_view(ctx: click.Context, thesis_id: int, as_json: bool) -> None:
         init_db()
 
         with get_session() as session:
-            thesis = session.query(Thesis).filter(Thesis.id == thesis_id).first()
+            thesis = session.exec(select(Thesis).where(Thesis.id == thesis_id)).first()
 
             if not thesis:
                 console.print(f"[red]Thesis not found: ID {thesis_id}[/red]")
@@ -453,4 +455,148 @@ def _display_thesis(console: Console, thesis) -> None:
     )
 
     console.print(Panel(meta_table, title="[dim]Metadata[/dim]", border_style="dim"))
-    console.print()
+
+    # Next steps
+    print_next_steps(
+        console,
+        [
+            ("Record decision", f"asymmetric decision create {ticker} --action buy"),
+            ("Update status", f"asymmetric thesis update {thesis.id} --status active"),
+        ],
+    )
+
+
+@thesis.command("update")
+@click.argument("thesis_id", type=int)
+@click.option("--summary", default=None, help="Update thesis summary")
+@click.option(
+    "--status",
+    type=click.Choice(["draft", "active", "archived"]),
+    default=None,
+    help="Update status",
+)
+@click.option("--bull-case", default=None, help="Update bull case")
+@click.option("--bear-case", default=None, help="Update bear case")
+@click.pass_context
+def thesis_update(
+    ctx: click.Context,
+    thesis_id: int,
+    summary: str | None,
+    status: str | None,
+    bull_case: str | None,
+    bear_case: str | None,
+) -> None:
+    """
+    Update an existing thesis.
+
+    \b
+    Examples:
+        asymmetric thesis update 1 --status active
+        asymmetric thesis update 1 --summary "Updated thesis summary"
+    """
+    console: Console = ctx.obj["console"]
+
+    # Check if any updates provided
+    if all(v is None for v in [summary, status, bull_case, bear_case]):
+        console.print("[yellow]No updates provided. Use --summary, --status, --bull-case, or --bear-case[/yellow]")
+        raise SystemExit(1)
+
+    try:
+        from asymmetric.db import get_session, init_db, Thesis
+
+        init_db()
+
+        with get_session() as session:
+            t = session.exec(select(Thesis).where(Thesis.id == thesis_id)).first()
+
+            if not t:
+                console.print(f"[red]Thesis not found: ID {thesis_id}[/red]")
+                raise SystemExit(1)
+
+            # Apply updates
+            updates = []
+            if summary is not None:
+                t.summary = summary
+                updates.append("summary updated")
+            if status is not None:
+                t.status = status
+                updates.append(f"status → {status}")
+            if bull_case is not None:
+                t.bull_case = bull_case
+                updates.append("bull_case updated")
+            if bear_case is not None:
+                t.bear_case = bear_case
+                updates.append("bear_case updated")
+
+            t.updated_at = datetime.now()
+            session.add(t)
+            session.commit()
+
+            ticker = t.stock.ticker if t.stock else "Unknown"
+            console.print(f"[green]+[/green] Thesis #{thesis_id} ({ticker}) updated:")
+            for u in updates:
+                console.print(f"  • {u}")
+
+    except Exception as e:
+        if not isinstance(e, SystemExit):
+            console.print(f"[red]Error:[/red] {e}")
+            raise SystemExit(1)
+        raise
+
+
+@thesis.command("delete")
+@click.argument("thesis_id", type=int)
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def thesis_delete(ctx: click.Context, thesis_id: int, yes: bool) -> None:
+    """
+    Delete a thesis and its associated decisions.
+
+    \b
+    Examples:
+        asymmetric thesis delete 1
+        asymmetric thesis delete 1 --yes
+    """
+    console: Console = ctx.obj["console"]
+
+    try:
+        from asymmetric.db import get_session, init_db, Thesis, Decision
+
+        init_db()
+
+        with get_session() as session:
+            t = session.exec(select(Thesis).where(Thesis.id == thesis_id)).first()
+
+            if not t:
+                console.print(f"[red]Thesis not found: ID {thesis_id}[/red]")
+                raise SystemExit(1)
+
+            ticker = t.stock.ticker if t.stock else "Unknown"
+            decision_count = len(t.decisions) if t.decisions else 0
+
+            if not yes:
+                msg = f"Delete thesis #{thesis_id} ({ticker})?"
+                if decision_count > 0:
+                    msg += f" This will also delete {decision_count} associated decision(s)."
+                confirm = click.confirm(msg, default=False)
+                if not confirm:
+                    console.print("[yellow]Cancelled[/yellow]")
+                    raise SystemExit(0)
+
+            # Delete associated decisions first
+            if t.decisions:
+                for d in t.decisions:
+                    session.delete(d)
+
+            session.delete(t)
+            session.commit()
+
+            console.print(f"[green]+[/green] Thesis #{thesis_id} deleted")
+            if decision_count > 0:
+                console.print(f"  [dim]({decision_count} associated decision(s) also deleted)[/dim]")
+
+    except Exception as e:
+        if not isinstance(e, SystemExit):
+            console.print(f"[red]Error:[/red] {e}")
+            raise SystemExit(1)
+        raise

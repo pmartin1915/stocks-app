@@ -2,8 +2,10 @@
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
+
+from sqlmodel import select
 
 import click
 from rich.console import Console
@@ -40,8 +42,8 @@ def decision(ctx: click.Context) -> None:
     help="Investment action",
 )
 @click.option("--thesis", "thesis_id", type=click.IntRange(min=1), default=None, help="Link to thesis ID")
-@click.option("--target-price", type=click.FloatRange(min=0.01), default=None, help="Target price (must be > 0)")
-@click.option("--stop-loss", type=click.FloatRange(min=0.01), default=None, help="Stop loss price (must be > 0)")
+@click.option("--target-price", type=click.FloatRange(min=0.01), default=None, help="Target price in USD")
+@click.option("--stop-loss", type=click.FloatRange(min=0.01), default=None, help="Stop loss price in USD")
 @click.option("--confidence", type=click.IntRange(1, 5), default=None, help="Confidence level 1-5")
 @click.option("--notes", default="", help="Decision rationale/notes (max 500 chars)")
 @click.pass_context
@@ -91,7 +93,7 @@ def decision_create(
         with get_session() as session:
             # Validate thesis if provided
             if thesis_id:
-                thesis = session.query(Thesis).filter(Thesis.id == thesis_id).first()
+                thesis = session.exec(select(Thesis).where(Thesis.id == thesis_id)).first()
                 if not thesis:
                     console.print(f"[red]Thesis not found: ID {thesis_id}[/red]")
                     raise SystemExit(1)
@@ -124,7 +126,7 @@ def decision_create(
                 confidence=confidence,
                 target_price=target_price,
                 stop_loss=stop_loss,
-                decided_at=datetime.utcnow(),
+                decided_at=datetime.now(timezone.utc),
             )
             session.add(decision_record)
             session.flush()
@@ -196,15 +198,15 @@ def decision_list(
         init_db()
 
         with get_session() as session:
-            query = session.query(Decision).join(Thesis).join(Stock)
+            stmt = select(Decision).join(Thesis).join(Stock)
 
             if action != "all":
-                query = query.filter(Decision.decision == action)
+                stmt = stmt.where(Decision.decision == action)
             if ticker:
-                query = query.filter(Stock.ticker == ticker.upper())
+                stmt = stmt.where(Stock.ticker == ticker.upper())
 
-            query = query.order_by(Decision.decided_at.desc()).limit(limit)
-            decisions = query.all()
+            stmt = stmt.order_by(Decision.decided_at.desc()).limit(limit)
+            decisions = session.exec(stmt).all()
 
             if as_json:
                 output = [
@@ -294,7 +296,7 @@ def decision_view(ctx: click.Context, decision_id: int, as_json: bool) -> None:
         init_db()
 
         with get_session() as session:
-            d = session.query(Decision).filter(Decision.id == decision_id).first()
+            d = session.exec(select(Decision).where(Decision.id == decision_id)).first()
 
             if not d:
                 console.print(f"[red]Decision not found: ID {decision_id}[/red]")
@@ -367,3 +369,134 @@ def _display_decision(console: Console, d) -> None:
         console.print(Panel(d.rationale, title="Rationale", border_style="cyan"))
 
     console.print()
+
+
+@decision.command("update")
+@click.argument("decision_id", type=int)
+@click.option(
+    "--action",
+    type=click.Choice(["buy", "hold", "sell", "pass"]),
+    default=None,
+    help="Update investment action",
+)
+@click.option("--target-price", type=click.FloatRange(min=0.01), default=None, help="Update target price in USD")
+@click.option("--stop-loss", type=click.FloatRange(min=0.01), default=None, help="Update stop loss price in USD")
+@click.option("--confidence", type=click.IntRange(1, 5), default=None, help="Update confidence level 1-5")
+@click.option("--notes", default=None, help="Update decision rationale/notes")
+@click.pass_context
+def decision_update(
+    ctx: click.Context,
+    decision_id: int,
+    action: Optional[str],
+    target_price: Optional[float],
+    stop_loss: Optional[float],
+    confidence: Optional[int],
+    notes: Optional[str],
+) -> None:
+    """
+    Update an existing decision.
+
+    \b
+    Examples:
+        asymmetric decision update 1 --confidence 5
+        asymmetric decision update 1 --action sell --target-price 200
+    """
+    console: Console = ctx.obj["console"]
+
+    # Check if any updates provided
+    if all(v is None for v in [action, target_price, stop_loss, confidence, notes]):
+        console.print("[yellow]No updates provided. Use --action, --target-price, --stop-loss, --confidence, or --notes[/yellow]")
+        raise SystemExit(1)
+
+    try:
+        from asymmetric.db import get_session, init_db, Decision
+
+        init_db()
+
+        with get_session() as session:
+            d = session.exec(select(Decision).where(Decision.id == decision_id)).first()
+
+            if not d:
+                console.print(f"[red]Decision not found: ID {decision_id}[/red]")
+                raise SystemExit(1)
+
+            # Apply updates
+            updates = []
+            if action is not None:
+                d.decision = action
+                updates.append(f"action → {action}")
+            if target_price is not None:
+                d.target_price = target_price
+                updates.append(f"target_price → ${target_price:.2f}")
+            if stop_loss is not None:
+                d.stop_loss = stop_loss
+                updates.append(f"stop_loss → ${stop_loss:.2f}")
+            if confidence is not None:
+                d.confidence = confidence
+                updates.append(f"confidence → {confidence}")
+            if notes is not None:
+                d.rationale = notes
+                updates.append("rationale updated")
+
+            session.add(d)
+            session.commit()
+
+            console.print(f"[green]+[/green] Decision #{decision_id} updated:")
+            for u in updates:
+                console.print(f"  • {u}")
+
+    except Exception as e:
+        if not isinstance(e, SystemExit):
+            console.print(f"[red]Error:[/red] {e}")
+            raise SystemExit(1)
+        raise
+
+
+@decision.command("delete")
+@click.argument("decision_id", type=int)
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def decision_delete(ctx: click.Context, decision_id: int, yes: bool) -> None:
+    """
+    Delete a decision.
+
+    \b
+    Examples:
+        asymmetric decision delete 1
+        asymmetric decision delete 1 --yes
+    """
+    console: Console = ctx.obj["console"]
+
+    try:
+        from asymmetric.db import get_session, init_db, Decision
+
+        init_db()
+
+        with get_session() as session:
+            d = session.exec(select(Decision).where(Decision.id == decision_id)).first()
+
+            if not d:
+                console.print(f"[red]Decision not found: ID {decision_id}[/red]")
+                raise SystemExit(1)
+
+            ticker = d.thesis.stock.ticker if d.thesis and d.thesis.stock else "?"
+
+            if not yes:
+                confirm = click.confirm(
+                    f"Delete decision #{decision_id} ({d.decision.upper()} on {ticker})?",
+                    default=False,
+                )
+                if not confirm:
+                    console.print("[yellow]Cancelled[/yellow]")
+                    raise SystemExit(0)
+
+            session.delete(d)
+            session.commit()
+
+            console.print(f"[green]+[/green] Decision #{decision_id} deleted")
+
+    except Exception as e:
+        if not isinstance(e, SystemExit):
+            console.print(f"[red]Error:[/red] {e}")
+            raise SystemExit(1)
+        raise
