@@ -537,6 +537,14 @@ def thesis_update(
             for u in updates:
                 console.print(f"  • {u}")
 
+            print_next_steps(
+                console,
+                [
+                    ("View thesis", f"asymmetric thesis view {thesis_id}"),
+                    ("Record decision", f"asymmetric decision create {ticker} --action buy"),
+                ],
+            )
+
     except Exception as e:
         if not isinstance(e, SystemExit):
             console.print(f"[red]Error:[/red] {e}")
@@ -594,6 +602,14 @@ def thesis_delete(ctx: click.Context, thesis_id: int, yes: bool) -> None:
             console.print(f"[green]+[/green] Thesis #{thesis_id} deleted")
             if decision_count > 0:
                 console.print(f"  [dim]({decision_count} associated decision(s) also deleted)[/dim]")
+
+            print_next_steps(
+                console,
+                [
+                    ("List theses", "asymmetric thesis list"),
+                    ("Create new thesis", f"asymmetric thesis create {ticker}"),
+                ],
+            )
 
     except Exception as e:
         if not isinstance(e, SystemExit):

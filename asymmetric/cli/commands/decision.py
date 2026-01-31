@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from asymmetric.cli.formatting import print_next_steps
 from asymmetric.cli.validators import TICKER, validate_price_relationship
 
 
@@ -445,6 +446,14 @@ def decision_update(
             for u in updates:
                 console.print(f"  • {u}")
 
+            print_next_steps(
+                console,
+                [
+                    ("View decision", f"asymmetric decision view {decision_id}"),
+                    ("List decisions", f"asymmetric decision list {ticker}"),
+                ],
+            )
+
     except Exception as e:
         if not isinstance(e, SystemExit):
             console.print(f"[red]Error:[/red] {e}")
@@ -494,6 +503,14 @@ def decision_delete(ctx: click.Context, decision_id: int, yes: bool) -> None:
             session.commit()
 
             console.print(f"[green]+[/green] Decision #{decision_id} deleted")
+
+            print_next_steps(
+                console,
+                [
+                    ("List decisions", f"asymmetric decision list {ticker}"),
+                    ("View thesis", f"asymmetric thesis list"),
+                ],
+            )
 
     except Exception as e:
         if not isinstance(e, SystemExit):
