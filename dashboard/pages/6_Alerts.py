@@ -12,6 +12,10 @@ import streamlit as st
 from asymmetric.core.alerts import AlertChecker
 from asymmetric.db.database import get_session
 from asymmetric.db.models import Stock
+from dashboard.utils.sidebar import render_full_sidebar
+
+# Render sidebar (theme toggle, branding, navigation)
+render_full_sidebar()
 
 st.title("Alerts")
 st.caption("Monitor score changes and threshold breaches")

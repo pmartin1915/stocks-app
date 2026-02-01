@@ -17,7 +17,11 @@ from dashboard.utils.bulk_data import (
     has_precomputed_scores,
 )
 from dashboard.utils.price_data import get_price_data, format_large_number
+from dashboard.utils.sidebar import render_full_sidebar
 from dashboard.utils.watchlist import add_stock, get_stocks
+
+# Render sidebar (theme toggle, branding, navigation)
+render_full_sidebar()
 
 st.title("Screener")
 

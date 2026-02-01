@@ -16,6 +16,7 @@ from dashboard.components.decisions import (
     render_thesis_form,
 )
 from dashboard.config import DECISION_ACTIONS, DECISIONS_PAGE_LIMIT, THESIS_STATUS, THESES_PAGE_LIMIT
+from dashboard.utils.sidebar import render_full_sidebar
 from dashboard.utils.decisions import (
     analyze_by_conviction,
     calculate_portfolio_return,
@@ -32,6 +33,9 @@ from dashboard.utils.decisions import (
 from dashboard.utils.watchlist import get_stocks
 
 st.set_page_config(page_title="Decisions | Asymmetric", layout="wide")
+
+# Render sidebar (theme toggle, branding, navigation)
+render_full_sidebar()
 
 st.title("Decisions")
 st.caption("Track investment theses and decision log")

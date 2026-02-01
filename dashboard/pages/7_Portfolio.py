@@ -13,6 +13,10 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from asymmetric.core.portfolio import PortfolioManager
+from dashboard.utils.sidebar import render_full_sidebar
+
+# Render sidebar (theme toggle, branding, navigation)
+render_full_sidebar()
 
 st.title("Portfolio")
 st.caption("Track holdings, transactions, and portfolio health")

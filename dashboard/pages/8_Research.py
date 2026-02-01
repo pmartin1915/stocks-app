@@ -16,10 +16,14 @@ from dashboard.components.stock_card import (
 )
 from dashboard.components import icons
 from dashboard.theme import get_semantic_color
+from dashboard.utils.sidebar import render_full_sidebar
 from dashboard.utils.scoring import get_scores_for_ticker
 from dashboard.utils.watchlist import get_cached_scores, get_stocks, add_stock
 
 st.set_page_config(page_title="Research | Asymmetric", layout="wide")
+
+# Render sidebar (theme toggle, branding, navigation)
+render_full_sidebar()
 
 st.title("Research Wizard")
 st.caption("Research → Thesis → Decision workflow")

@@ -8,6 +8,7 @@ Or use: python run_dashboard.py
 """
 
 import streamlit as st
+from dashboard.utils.sidebar import render_full_sidebar
 
 st.set_page_config(
     page_title="Asymmetric",
@@ -16,44 +17,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-if "theme" not in st.session_state:
-    st.session_state.theme = "light"
-
-# Sidebar branding
-st.sidebar.title("Asymmetric")
-st.sidebar.caption("Long-term value investing research")
-
-# Theme selector
-theme_col1, theme_col2 = st.sidebar.columns([3, 1])
-with theme_col1:
-    st.caption("Theme")
-with theme_col2:
-    # Use a toggle for cleaner UX
-    is_dark = st.toggle(
-        "🌙",
-        value=st.session_state.theme == "dark",
-        key="theme_toggle",
-        help="Toggle dark mode",
-    )
-    new_theme = "dark" if is_dark else "light"
-    # Only rerun if theme actually changed (prevents infinite loop)
-    if st.session_state.theme != new_theme:
-        st.session_state.theme = new_theme
-        st.rerun()
-
-st.sidebar.divider()
-
-# Navigation hints in sidebar
-st.sidebar.markdown("""
-**Navigate using the pages above:**
-- **Watchlist** — Your tracked stocks
-- **Screener** — Find opportunities
-- **Compare** — Side-by-side analysis
-- **Decisions** — Investment theses
-- **Trends** — Score trajectories
-- **Alerts** — Threshold monitoring
-- **Portfolio** — Holdings & P&L
-""")
+# Render shared sidebar (theme toggle, branding, navigation)
+render_full_sidebar()
 
 # Main page content
 st.title("Welcome to Asymmetric")

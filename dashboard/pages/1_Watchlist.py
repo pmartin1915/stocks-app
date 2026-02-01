@@ -22,6 +22,7 @@ from dashboard.components.stock_card import (
 )
 from dashboard.components import icons
 from dashboard.utils.scoring import get_scores_for_ticker, refresh_scores
+from dashboard.utils.sidebar import render_full_sidebar
 from dashboard.utils.watchlist import (
     add_stock,
     get_cached_scores,
@@ -32,6 +33,9 @@ from dashboard.utils.watchlist import (
     save_watchlist,
     update_cached_scores,
 )
+
+# Render sidebar (theme toggle, branding, navigation)
+render_full_sidebar()
 
 st.title("Watchlist")
 st.caption("Track stocks with Piotroski F-Score and Altman Z-Score")

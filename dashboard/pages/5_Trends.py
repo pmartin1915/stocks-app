@@ -15,6 +15,10 @@ from asymmetric.core.trends import TrendAnalyzer
 from asymmetric.db.database import get_session
 from asymmetric.db.models import Stock
 from dashboard.theme import get_semantic_color
+from dashboard.utils.sidebar import render_full_sidebar
+
+# Render sidebar (theme toggle, branding, navigation)
+render_full_sidebar()
 
 st.title("Score Trends")
 st.caption("Track F-Score and Z-Score trajectories over time")

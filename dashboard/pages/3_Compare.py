@@ -24,9 +24,13 @@ from dashboard.utils.ai_analysis import (
     run_comparison_analysis,
 )
 from dashboard.utils.scoring import get_scores_for_ticker
+from dashboard.utils.sidebar import render_full_sidebar
 from dashboard.utils.watchlist import get_cached_scores, get_stocks, add_stock
 
 st.set_page_config(page_title="Compare | Asymmetric", layout="wide")
+
+# Render sidebar (theme toggle, branding, navigation)
+render_full_sidebar()
 
 st.title("Compare")
 st.caption("Compare 2-3 stocks side-by-side with AI-powered analysis")
