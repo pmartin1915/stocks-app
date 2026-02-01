@@ -5,7 +5,7 @@ Streamlit pages, particularly the Screener.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import streamlit as st
@@ -168,7 +168,7 @@ def format_last_refresh(iso_str: str | None) -> str:
         else:
             dt = iso_str  # Already a datetime
 
-        now = datetime.now()
+        now = datetime.now(UTC)
         delta = now - dt
 
         if delta.days == 0:

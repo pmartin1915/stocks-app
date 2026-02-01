@@ -5,7 +5,7 @@ Manage your investment portfolio with FIFO cost basis tracking,
 realized/unrealized P&L, and portfolio-weighted score analysis.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pandas as pd
 import plotly.express as px
@@ -134,7 +134,7 @@ with tab_add:
             buy_quantity = st.number_input("Quantity", min_value=0.001, value=1.0, key="buy_qty")
             buy_price = st.number_input("Price per Share", min_value=0.01, value=100.0, key="buy_price")
             buy_fees = st.number_input("Fees", min_value=0.0, value=0.0, key="buy_fees")
-            buy_date = st.date_input("Date", value=datetime.now(), key="buy_date")
+            buy_date = st.date_input("Date", value=datetime.now(UTC), key="buy_date")
             buy_notes = st.text_input("Notes (optional)", key="buy_notes")
 
             if st.form_submit_button("Record Buy", type="primary"):
@@ -144,7 +144,7 @@ with tab_add:
                             ticker=buy_ticker,
                             quantity=buy_quantity,
                             price_per_share=buy_price,
-                            transaction_date=datetime.combine(buy_date, datetime.min.time()),
+                            transaction_date=datetime.combine(buy_date, datetime.min.time(), tzinfo=UTC),
                             fees=buy_fees,
                             notes=buy_notes if buy_notes else None
                         )
@@ -162,7 +162,7 @@ with tab_add:
             sell_quantity = st.number_input("Quantity", min_value=0.001, value=1.0, key="sell_qty")
             sell_price = st.number_input("Price per Share", min_value=0.01, value=100.0, key="sell_price")
             sell_fees = st.number_input("Fees", min_value=0.0, value=0.0, key="sell_fees")
-            sell_date = st.date_input("Date", value=datetime.now(), key="sell_date")
+            sell_date = st.date_input("Date", value=datetime.now(UTC), key="sell_date")
             sell_notes = st.text_input("Notes (optional)", key="sell_notes")
 
             if st.form_submit_button("Record Sell", type="secondary"):
@@ -172,7 +172,7 @@ with tab_add:
                             ticker=sell_ticker,
                             quantity=sell_quantity,
                             price_per_share=sell_price,
-                            transaction_date=datetime.combine(sell_date, datetime.min.time()),
+                            transaction_date=datetime.combine(sell_date, datetime.min.time(), tzinfo=UTC),
                             fees=sell_fees,
                             notes=sell_notes if sell_notes else None
                         )

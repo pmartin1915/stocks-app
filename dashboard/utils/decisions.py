@@ -7,6 +7,7 @@ following the same patterns as watchlist.py and scoring.py.
 from datetime import UTC, datetime
 from typing import Any, Optional
 
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import select
 
 from asymmetric.db.database import get_or_create_stock, get_session, init_db
@@ -32,36 +33,39 @@ def get_decisions(
     init_db()
 
     with get_session() as session:
-        # Build query with joins
-        query = (
-            select(Decision, Thesis, Stock)
-            .join(Thesis, Decision.thesis_id == Thesis.id)
-            .join(Stock, Thesis.stock_id == Stock.id)
-        )
+        try:
+            # Build query with joins
+            query = (
+                select(Decision, Thesis, Stock)
+                .join(Thesis, Decision.thesis_id == Thesis.id)
+                .join(Stock, Thesis.stock_id == Stock.id)
+            )
 
-        if action:
-            query = query.where(Decision.decision == action)
-        if ticker:
-            query = query.where(Stock.ticker == ticker.upper())
+            if action:
+                query = query.where(Decision.decision == action)
+            if ticker:
+                query = query.where(Stock.ticker == ticker.upper())
 
-        query = query.order_by(Decision.decided_at.desc()).limit(limit)
+            query = query.order_by(Decision.decided_at.desc()).limit(limit)
 
-        results = []
-        for decision, thesis, stock in session.exec(query):
-            results.append({
-                "id": decision.id,
-                "ticker": stock.ticker,
-                "company_name": stock.company_name,
-                "action": decision.decision,
-                "confidence": decision.confidence,
-                "target_price": decision.target_price,
-                "stop_loss": decision.stop_loss,
-                "rationale": decision.rationale,
-                "thesis_id": decision.thesis_id,
-                "thesis_summary": thesis.summary[:100] if thesis.summary else "",
-                "decided_at": decision.decided_at.isoformat() if decision.decided_at else None,
-            })
-        return results
+            results = []
+            for decision, thesis, stock in session.exec(query):
+                results.append({
+                    "id": decision.id,
+                    "ticker": stock.ticker,
+                    "company_name": stock.company_name,
+                    "action": decision.decision,
+                    "confidence": decision.confidence,
+                    "target_price": decision.target_price,
+                    "stop_loss": decision.stop_loss,
+                    "rationale": decision.rationale,
+                    "thesis_id": decision.thesis_id,
+                    "thesis_summary": thesis.summary[:100] if thesis.summary else "",
+                    "decided_at": decision.decided_at.isoformat() if decision.decided_at else None,
+                })
+            return results
+        except SQLAlchemyError as e:
+            raise ValueError(f"Failed to fetch decisions: {e}") from e
 
 
 def get_decision_by_id(decision_id: int) -> Optional[dict[str, Any]]:
@@ -151,7 +155,11 @@ def create_decision(
                 status="active",
             )
             session.add(thesis)
-            session.flush()
+            try:
+                session.flush()
+            except (SQLAlchemyError, IntegrityError) as e:
+                session.rollback()
+                raise ValueError(f"Failed to create thesis: {e}") from e
             thesis_id = thesis.id
 
         decision = Decision(
@@ -164,7 +172,11 @@ def create_decision(
             decided_at=datetime.now(UTC),
         )
         session.add(decision)
-        session.flush()
+        try:
+            session.flush()
+        except (SQLAlchemyError, IntegrityError) as e:
+            session.rollback()
+            raise ValueError(f"Failed to create decision: {e}") from e
         return decision.id
 
 
@@ -216,6 +228,8 @@ def get_theses(
                 "ai_model": thesis.ai_model,
                 "ai_cost_usd": thesis.ai_cost_usd,
                 "decision_count": len(decision_count),
+                "conviction": thesis.conviction,
+                "conviction_rationale": thesis.conviction_rationale,
                 "created_at": thesis.created_at.isoformat() if thesis.created_at else None,
                 "updated_at": thesis.updated_at.isoformat() if thesis.updated_at else None,
             })
@@ -262,6 +276,8 @@ def get_thesis_by_id(thesis_id: int) -> Optional[dict[str, Any]]:
             "bear_case": thesis.bear_case,
             "key_metrics": thesis.key_metrics,
             "status": thesis.status,
+            "conviction": thesis.conviction,
+            "conviction_rationale": thesis.conviction_rationale,
             "ai_generated": bool(thesis.ai_model),
             "ai_model": thesis.ai_model,
             "ai_cost_usd": thesis.ai_cost_usd,
@@ -373,6 +389,8 @@ def update_thesis(
     bear_case: Optional[str] = None,
     key_metrics: Optional[str] = None,
     status: Optional[str] = None,
+    conviction: Optional[int] = None,
+    conviction_rationale: Optional[str] = None,
 ) -> bool:
     """
     Update thesis fields.
@@ -385,6 +403,8 @@ def update_thesis(
         bear_case: New bear case.
         key_metrics: New key metrics.
         status: New status (draft/active/archived).
+        conviction: Conviction level (1-5).
+        conviction_rationale: Rationale for conviction level.
 
     Returns:
         True if updated, False if not found.
@@ -408,6 +428,10 @@ def update_thesis(
             thesis.key_metrics = key_metrics if key_metrics else None
         if status is not None:
             thesis.status = status
+        if conviction is not None:
+            thesis.conviction = conviction
+        if conviction_rationale is not None:
+            thesis.conviction_rationale = conviction_rationale
 
         thesis.updated_at = datetime.now(UTC)
         return True
@@ -542,7 +566,11 @@ def update_decision_outcome(
         decision.hit = hit
 
         session.add(decision)
-        session.commit()
+        try:
+            session.commit()
+        except (SQLAlchemyError, IntegrityError) as e:
+            session.rollback()
+            raise ValueError(f"Failed to update decision outcome: {e}") from e
         return True
 
 

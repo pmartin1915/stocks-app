@@ -4,12 +4,14 @@ Provides real-time and historical price data for stock cards
 and sparkline visualizations.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
+from functools import partial
 from typing import Optional
 
 import streamlit as st
 
 try:
+    import requests
     import yfinance as yf
 
     YFINANCE_AVAILABLE = True
@@ -31,7 +33,10 @@ def get_price_data(ticker: str) -> dict:
         return {"error": "yfinance not installed. Run: pip install yfinance"}
 
     try:
-        stock = yf.Ticker(ticker)
+        # Create session with timeout
+        session = requests.Session()
+        session.get = partial(session.get, timeout=10)
+        stock = yf.Ticker(ticker, session=session)
         info = stock.info
 
         # Handle case where ticker doesn't exist
@@ -55,7 +60,7 @@ def get_price_data(ticker: str) -> dict:
             "long_name": info.get("longName"),
             "sector": info.get("sector"),
             "industry": info.get("industry"),
-            "fetched_at": datetime.now().isoformat(),
+            "fetched_at": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         return {"error": str(e)}
@@ -76,7 +81,10 @@ def get_price_history(ticker: str, period: str = "1y") -> dict:
         return {"error": "yfinance not installed"}
 
     try:
-        stock = yf.Ticker(ticker)
+        # Create session with timeout
+        session = requests.Session()
+        session.get = partial(session.get, timeout=10)
+        stock = yf.Ticker(ticker, session=session)
         hist = stock.history(period=period)
 
         if hist.empty:

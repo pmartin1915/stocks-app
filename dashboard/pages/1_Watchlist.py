@@ -7,7 +7,7 @@ Supports adding/removing stocks and refreshing scores from SEC EDGAR.
 """
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 
 import streamlit as st
 
@@ -186,7 +186,7 @@ else:
                             error_messages.append(f"{ticker}: {scores.get('message', 'Unknown error')}")
                     else:
                         wl["stocks"][ticker]["cached_scores"] = scores
-                        wl["stocks"][ticker]["cached_at"] = datetime.now().isoformat()
+                        wl["stocks"][ticker]["cached_at"] = datetime.now(UTC).isoformat()
                         success_count += 1
                 save_watchlist(wl)
 
@@ -212,8 +212,17 @@ else:
         data = get_stock_data(ticker)
         cached_scores = get_cached_scores(ticker)
 
-        piotroski = cached_scores.get("piotroski") if cached_scores else None
-        altman = cached_scores.get("altman") if cached_scores else None
+        # Validate cached scores before accessing
+        piotroski = None
+        altman = None
+        if cached_scores and isinstance(cached_scores, dict):
+            piotroski_data = cached_scores.get("piotroski")
+            if piotroski_data and isinstance(piotroski_data, dict):
+                piotroski = piotroski_data
+
+            altman_data = cached_scores.get("altman")
+            if altman_data and isinstance(altman_data, dict):
+                altman = altman_data
 
         # Build plain text label for expander
         fscore_text = f"F:{piotroski.get('score')}/9" if piotroski and piotroski.get('score') is not None else "F:N/A"

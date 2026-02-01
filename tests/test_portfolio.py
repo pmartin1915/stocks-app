@@ -1,6 +1,6 @@
 """Tests for portfolio management functionality."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -32,7 +32,7 @@ class TestPortfolioModels:
             transaction = Transaction(
                 stock_id=stock.id,
                 transaction_type="buy",
-                transaction_date=datetime.now(),
+                transaction_date=datetime.now(UTC),
                 quantity=10,
                 price_per_share=150.00,
                 fees=1.00,
@@ -60,8 +60,8 @@ class TestPortfolioModels:
                 quantity=10,
                 cost_basis_total=1500.00,
                 cost_basis_per_share=150.00,
-                first_purchase_date=datetime.now(),
-                last_transaction_date=datetime.now(),
+                first_purchase_date=datetime.now(UTC),
+                last_transaction_date=datetime.now(UTC),
             )
             session.add(holding)
             session.commit()
@@ -119,7 +119,7 @@ class TestTransactionTypes:
             transaction = Transaction(
                 stock_id=stock.id,
                 transaction_type="sell",
-                transaction_date=datetime.now(),
+                transaction_date=datetime.now(UTC),
                 quantity=-5,  # Negative for sells
                 price_per_share=175.00,
                 fees=1.00,

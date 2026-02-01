@@ -1,6 +1,6 @@
 """Tests for TrendAnalyzer business logic."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -25,7 +25,7 @@ def analyzer():
 @pytest.fixture
 def stock_with_improving_history():
     """Create a stock with improving F-Score history."""
-    current_year = datetime.now().year
+    current_year = datetime.now(UTC).year
     with get_session() as session:
         stock = Stock(ticker="IMPR", cik="0001111111", company_name="Improving Corp")
         session.add(stock)
@@ -60,7 +60,7 @@ def stock_with_improving_history():
 @pytest.fixture
 def stock_with_declining_history():
     """Create a stock with declining F-Score history."""
-    current_year = datetime.now().year
+    current_year = datetime.now(UTC).year
     with get_session() as session:
         stock = Stock(ticker="DECL", cik="0002222222", company_name="Declining Corp")
         session.add(stock)
@@ -95,7 +95,7 @@ def stock_with_declining_history():
 @pytest.fixture
 def stock_with_consistent_history():
     """Create a stock with consistently high F-Score history."""
-    current_year = datetime.now().year
+    current_year = datetime.now(UTC).year
     with get_session() as session:
         stock = Stock(ticker="CONS", cik="0003333333", company_name="Consistent Corp")
         session.add(stock)
@@ -124,7 +124,7 @@ def stock_with_consistent_history():
 @pytest.fixture
 def stock_turnaround():
     """Create a stock that recovered from Distress."""
-    current_year = datetime.now().year
+    current_year = datetime.now(UTC).year
     with get_session() as session:
         stock = Stock(ticker="TURN", cik="0004444444", company_name="Turnaround Corp")
         session.add(stock)
@@ -158,7 +158,7 @@ class TestGetScoreHistory:
 
     def test_get_score_history_returns_records(self, analyzer, stock_with_improving_history):
         """Test getting score history returns records."""
-        current_year = datetime.now().year
+        current_year = datetime.now(UTC).year
         history = analyzer.get_score_history(stock_with_improving_history, years=5)
 
         assert len(history) == 4
@@ -168,7 +168,7 @@ class TestGetScoreHistory:
 
     def test_get_score_history_filters_by_years(self, analyzer, stock_with_improving_history):
         """Test history is filtered by year range."""
-        current_year = datetime.now().year
+        current_year = datetime.now(UTC).year
         history = analyzer.get_score_history(stock_with_improving_history, years=2)
 
         # With years=2, min_year = current_year - 2, so we get current, current-1, current-2 (3 records)
@@ -334,7 +334,7 @@ class TestSaveScoreToHistory:
 
     def test_save_score_creates_record(self, analyzer):
         """Test saving score creates new history record."""
-        current_year = datetime.now().year
+        current_year = datetime.now(UTC).year
         with get_session() as session:
             stock = Stock(ticker="NEW", cik="0006666666", company_name="New Corp")
             session.add(stock)
@@ -358,7 +358,7 @@ class TestSaveScoreToHistory:
 
     def test_save_score_upserts_existing(self, analyzer, stock_with_improving_history):
         """Test saving score updates existing record."""
-        current_year = datetime.now().year
+        current_year = datetime.now(UTC).year
         # Update current year score (fixture creates one at current_year)
         result = analyzer.save_score_to_history(
             ticker=stock_with_improving_history,

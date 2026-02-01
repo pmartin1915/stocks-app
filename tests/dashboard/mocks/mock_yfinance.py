@@ -4,7 +4,7 @@ Provides realistic mock data for AAPL and other tickers to avoid
 real API calls during testing.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pandas as pd
 
@@ -69,7 +69,7 @@ def create_mock_history(
     Returns:
         DataFrame with OHLCV data.
     """
-    dates = pd.date_range(end=datetime.now(), periods=periods, freq="D")
+    dates = pd.date_range(end=datetime.now(UTC), periods=periods, freq="D")
 
     if trend == "up":
         prices = [start_price + (i * 0.25) for i in range(periods)]

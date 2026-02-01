@@ -31,6 +31,14 @@ from asymmetric.core.ai.exceptions import (
     GeminiRateLimitError,
 )
 
+# Try to import google.api_core exceptions for better error handling
+try:
+    import google.api_core.exceptions as gapi_errors
+    GOOGLE_API_ERRORS_AVAILABLE = True
+except ImportError:
+    gapi_errors = None
+    GOOGLE_API_ERRORS_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Token thresholds - use central config as source of truth
@@ -352,10 +360,15 @@ class GeminiClient:
         Returns:
             Exact token count.
         """
-        genai = self._get_client()
-        model_instance = genai.GenerativeModel(model.value)
-        result = model_instance.count_tokens(text)
-        return result.total_tokens
+        try:
+            genai = self._get_client()
+            model_instance = genai.GenerativeModel(model.value)
+            result = model_instance.count_tokens(text)
+            return result.total_tokens
+        except Exception as e:
+            logger.warning(f"Token counting failed: {e}. Using rough estimate.")
+            # Fallback to rough estimate (4 chars per token average)
+            return len(text) // 4
 
     def check_token_threshold(self, text: str) -> tuple[int, bool, bool, bool]:
         """
@@ -518,6 +531,17 @@ class GeminiClient:
             )
 
         except Exception as e:
+            # Handle Google API specific exceptions if available
+            if GOOGLE_API_ERRORS_AVAILABLE and gapi_errors:
+                if isinstance(e, gapi_errors.ResourceExhausted):
+                    raise GeminiRateLimitError("Gemini API rate limit exceeded") from e
+                elif isinstance(e, (gapi_errors.ServiceUnavailable, gapi_errors.DeadlineExceeded)):
+                    raise GeminiRateLimitError("Gemini service temporarily unavailable") from e
+                elif isinstance(e, gapi_errors.GoogleAPIError):
+                    logger.error(f"Google API error: {e}")
+                    raise GeminiRateLimitError(f"Gemini API error: {e}") from e
+
+            # Fallback to string matching for error detection
             error_str = str(e).lower()
 
             # Handle rate limiting

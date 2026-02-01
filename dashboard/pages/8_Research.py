@@ -527,101 +527,101 @@ def render_review_outcomes_tab() -> None:
 
         # Display pending decisions in expandable cards
         for decision in pending_decisions:
-        ticker = decision.get("ticker", "N/A")
-        action = decision.get("action", "N/A").upper()
-        confidence = decision.get("confidence", 3)
-        decided_at = decision.get("decided_at", "N/A")
+            ticker = decision.get("ticker", "N/A")
+            action = decision.get("action", "N/A").upper()
+            confidence = decision.get("confidence", 3)
+            decided_at = decision.get("decided_at", "N/A")
 
-        # Parse date for display
-        if decided_at != "N/A":
-            from datetime import datetime
-            try:
-                dt = datetime.fromisoformat(decided_at)
-                date_str = dt.strftime("%b %d, %Y")
-            except:
-                date_str = decided_at
-        else:
-            date_str = "Unknown date"
+            # Parse date for display
+            if decided_at != "N/A":
+                from datetime import datetime
+                try:
+                    dt = datetime.fromisoformat(decided_at)
+                    date_str = dt.strftime("%b %d, %Y")
+                except:
+                    date_str = decided_at
+            else:
+                date_str = "Unknown date"
 
-        with st.expander(f"📊 {ticker} - {action} ({date_str}) - Conviction: {confidence}/5"):
-            # Fetch full decision details including thesis
-            full_decision = get_decision_by_id(decision["id"])
+            with st.expander(f"📊 {ticker} - {action} ({date_str}) - Conviction: {confidence}/5"):
+                # Fetch full decision details including thesis
+                full_decision = get_decision_by_id(decision["id"])
 
-            # Before/After Comparison Section
-            st.markdown("### Original Thesis vs. Outcome")
+                # Before/After Comparison Section
+                st.markdown("### Original Thesis vs. Outcome")
 
-            comp_col1, comp_col2 = st.columns(2)
+                comp_col1, comp_col2 = st.columns(2)
 
-            with comp_col1:
-                st.markdown("#### 📋 Original Thesis")
-                st.markdown(f"**Summary**: {full_decision.get('thesis_summary', 'N/A')[:200]}...")
-                st.markdown(f"**Action**: {action}")
-                st.markdown(f"**Conviction**: {confidence}/5")
-                if decision.get('target_price'):
-                    st.markdown(f"**Target Price**: ${decision['target_price']:.2f}")
-                st.markdown(f"**Date**: {date_str}")
-                st.markdown(f"**Rationale**: {decision.get('rationale', 'N/A')[:150]}...")
+                with comp_col1:
+                    st.markdown("#### 📋 Original Thesis")
+                    st.markdown(f"**Summary**: {full_decision.get('thesis_summary', 'N/A')[:200]}...")
+                    st.markdown(f"**Action**: {action}")
+                    st.markdown(f"**Conviction**: {confidence}/5")
+                    if decision.get('target_price'):
+                        st.markdown(f"**Target Price**: ${decision['target_price']:.2f}")
+                    st.markdown(f"**Date**: {date_str}")
+                    st.markdown(f"**Rationale**: {decision.get('rationale', 'N/A')[:150]}...")
 
-            with comp_col2:
-                st.markdown("#### 📊 Record Actual Outcome")
-                st.caption("Fill in what actually happened")
+                with comp_col2:
+                    st.markdown("#### 📊 Record Actual Outcome")
+                    st.caption("Fill in what actually happened")
 
-                outcome = st.selectbox(
-                    "Actual Outcome",
-                    options=["success", "partial", "failure", "unknown"],
-                    format_func=lambda x: x.capitalize(),
-                    key=f"outcome_{decision['id']}",
-                )
-
-                actual_price = st.number_input(
-                    "Actual Price ($)",
-                    min_value=0.0,
-                    value=0.0,
-                    step=0.01,
-                    help="Current stock price or exit price",
-                    key=f"price_{decision['id']}",
-                )
-
-                # Calculate return if both prices exist
-                if actual_price > 0 and decision.get('target_price', 0) > 0:
-                    pct_return = ((actual_price - decision['target_price']) / decision['target_price']) * 100
-                    color = COLORS['green'] if pct_return > 0 else COLORS['red']
-                    st.markdown(
-                        f"<div style='color:{color};font-weight:600'>Return vs. Target: {pct_return:+.2f}%</div>",
-                        unsafe_allow_html=True,
+                    outcome = st.selectbox(
+                        "Actual Outcome",
+                        options=["success", "partial", "failure", "unknown"],
+                        format_func=lambda x: x.capitalize(),
+                        key=f"outcome_{decision['id']}",
                     )
 
-                hit = st.checkbox(
-                    "✓ Thesis proved correct",
-                    help="Check if your original thesis was validated",
-                    key=f"hit_{decision['id']}",
+                    actual_price = st.number_input(
+                        "Actual Price ($)",
+                        min_value=0.0,
+                        value=0.0,
+                        step=0.01,
+                        help="Current stock price or exit price",
+                        key=f"price_{decision['id']}",
+                    )
+
+                    # Calculate return if both prices exist
+                    if actual_price > 0 and decision.get('target_price', 0) > 0:
+                        pct_return = ((actual_price - decision['target_price']) / decision['target_price']) * 100
+                        color = COLORS['green'] if pct_return > 0 else COLORS['red']
+                        st.markdown(
+                            f"<div style='color:{color};font-weight:600'>Return vs. Target: {pct_return:+.2f}%</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                    hit = st.checkbox(
+                        "✓ Thesis proved correct",
+                        help="Check if your original thesis was validated",
+                        key=f"hit_{decision['id']}",
+                    )
+
+                st.divider()
+
+                # Lessons learned (full width)
+                lessons = st.text_area(
+                    "📝 Lessons Learned",
+                    placeholder="What did you learn from this decision? What would you do differently next time?",
+                    height=100,
+                    key=f"lessons_{decision['id']}",
                 )
 
-            st.divider()
-
-            # Lessons learned (full width)
-            lessons = st.text_area(
-                "📝 Lessons Learned",
-                placeholder="What did you learn from this decision? What would you do differently next time?",
-                height=100,
-                key=f"lessons_{decision['id']}",
-            )
-
-            # Save button
-            if st.button("💾 Save Outcome", key=f"save_{decision['id']}", type="primary", use_container_width=True):
-                success = update_decision_outcome(
-                    decision_id=decision["id"],
-                    actual_outcome=outcome,
-                    actual_price=actual_price if actual_price > 0 else None,
-                    lessons_learned=lessons if lessons else None,
-                    hit=hit,
-                )
-                if success:
-                    st.success(f"✅ Outcome recorded for {ticker}!")
-                    st.balloons()
-                    st.rerun()
-                else:
-                    st.error("Failed to save outcome. Please try again.")
+                # Save button
+                if st.button("💾 Save Outcome", key=f"save_{decision['id']}", type="primary", use_container_width=True):
+                    success = update_decision_outcome(
+                        decision_id=decision["id"],
+                        actual_outcome=outcome,
+                        actual_price=actual_price if actual_price > 0 else None,
+                        lessons_learned=lessons if lessons else None,
+                        hit=hit,
+                    )
+                    if success:
+                        st.success(f"✅ Outcome recorded for {ticker}!")
+                        st.balloons()
+                        st.rerun()
+                    else:
+                        st.error("Failed to save outcome. Please try again.")
 
     else:  # view_mode == "Completed Reviews"
         if not completed_decisions:

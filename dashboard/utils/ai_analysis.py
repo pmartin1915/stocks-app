@@ -1,5 +1,6 @@
 """AI analysis utilities for the dashboard."""
 
+from datetime import UTC, datetime
 from typing import Any
 
 import streamlit as st
@@ -148,6 +149,117 @@ Provide detailed analysis covering:
 7. **Investment Thesis**: For a value investor seeking quality at reasonable prices, which stock offers the best risk-adjusted opportunity? Support your recommendation with specific metrics.
 
 Be specific with numbers and provide actionable insights."""
+
+
+def run_single_stock_analysis(
+    ticker: str,
+    scores: dict,
+    model: str = "flash",
+) -> dict[str, Any]:
+    """
+    Run AI analysis for a single stock.
+
+    Args:
+        ticker: Stock ticker symbol.
+        scores: Dictionary with piotroski and altman scores.
+        model: Model to use ("flash" or "pro").
+
+    Returns:
+        Dict with analysis result and metadata, or error info.
+    """
+    client = get_gemini_client_cached()
+
+    if client is None:
+        return {
+            "error": "config",
+            "message": "GEMINI_API_KEY not configured. Set it in your .env file.",
+        }
+
+    # Build single-stock context
+    piotroski = scores.get("piotroski", {})
+    altman = scores.get("altman", {})
+
+    context = f"""## {ticker}
+
+### Piotroski F-Score: {piotroski.get('score', 'N/A')}/9 ({piotroski.get('interpretation', 'N/A')})
+- Profitability: {piotroski.get('profitability', 'N/A')}/4
+- Leverage/Liquidity: {piotroski.get('leverage', 'N/A')}/3
+- Operating Efficiency: {piotroski.get('efficiency', 'N/A')}/2
+
+### Altman Z-Score: {altman.get('z_score', 'N/A')} ({altman.get('zone', 'N/A')})
+- Interpretation: {altman.get('interpretation', 'N/A')}
+- Formula Used: {altman.get('formula_used', 'Standard')}
+"""
+
+    # Select prompt and model
+    if model == "flash":
+        prompt = f"""Provide a quick investment analysis of {ticker} based on these financial health metrics:
+
+{context}
+
+Provide a concise analysis (3-5 bullet points) covering:
+1. Overall financial health assessment
+2. Key strengths based on the scores
+3. Main risks or concerns
+4. Investment recommendation (Buy/Hold/Pass)
+
+Keep your response under 300 words."""
+        gemini_model = GeminiModel.FLASH
+    else:
+        prompt = f"""Perform a comprehensive investment analysis of {ticker}:
+
+{context}
+
+Provide detailed analysis covering:
+1. **Financial Health Assessment**: Overall interpretation of F-Score and Z-Score
+2. **Profitability Analysis**: ROA, cash flow quality, earnings sustainability
+3. **Leverage & Liquidity**: Debt levels, current ratio, financial flexibility
+4. **Operating Efficiency**: Margin trends, asset turnover
+5. **Risk Assessment**: Bankruptcy risk, key concerns
+6. **Investment Thesis**: Detailed recommendation with specific supporting metrics
+
+Be specific with numbers and provide actionable insights."""
+        gemini_model = GeminiModel.PRO
+
+    try:
+        result = client.analyze_with_cache(
+            context=context,
+            prompt=prompt,
+            model=gemini_model,
+        )
+
+        return {
+            "success": True,
+            "content": result.content,
+            "model": result.model,
+            "cached": result.cached,
+            "input_tokens": result.token_count_input,
+            "output_tokens": result.token_count_output,
+            "cost_usd": result.estimated_cost_usd,
+            "latency_ms": result.latency_ms,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
+    except GeminiContextTooLargeError as e:
+        return {
+            "error": "context_too_large",
+            "message": f"Context exceeds 200K token limit: {e}",
+        }
+    except GeminiRateLimitError:
+        return {
+            "error": "rate_limited",
+            "message": "Gemini API rate limit reached. Please wait and try again.",
+        }
+    except GeminiCacheExpiredError:
+        return {
+            "error": "cache_expired",
+            "message": "Analysis cache expired. Please try again.",
+        }
+    except Exception as e:
+        return {
+            "error": "unknown",
+            "message": f"Analysis failed: {str(e)}",
+        }
 
 
 def run_comparison_analysis(

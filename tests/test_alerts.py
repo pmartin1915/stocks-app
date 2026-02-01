@@ -1,6 +1,6 @@
 """Tests for alert management functionality."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -157,7 +157,7 @@ class TestAlertAcknowledgment:
 
             # Acknowledge
             history.acknowledged = True
-            history.acknowledged_at = datetime.now()
+            history.acknowledged_at = datetime.now(UTC)
             history.acknowledged_by = "test_user"
             session.add(history)
             session.commit()

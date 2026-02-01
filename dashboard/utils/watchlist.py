@@ -5,7 +5,7 @@ Stores watchlist in ~/.asymmetric/watchlist.json
 """
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,8 +13,15 @@ from dashboard.config import WATCHLIST_FILE
 
 
 def _ensure_watchlist_dir() -> None:
-    """Ensure the watchlist directory exists."""
-    WATCHLIST_FILE.parent.mkdir(parents=True, exist_ok=True)
+    """Ensure the watchlist directory exists.
+
+    Raises:
+        IOError: If directory cannot be created due to permissions.
+    """
+    try:
+        WATCHLIST_FILE.parent.mkdir(parents=True, exist_ok=True)
+    except PermissionError as e:
+        raise IOError(f"Cannot create watchlist directory: {e}") from e
 
 
 def load_watchlist() -> dict[str, Any]:
@@ -34,14 +41,30 @@ def load_watchlist() -> dict[str, Any]:
 
 
 def save_watchlist(watchlist: dict[str, Any]) -> None:
-    """Save watchlist to JSON file.
+    """Save watchlist to JSON file atomically.
+
+    Uses atomic write pattern (write to temp file, then rename) to prevent
+    corruption if write fails midway.
 
     Args:
         watchlist: Dict with 'stocks' key containing ticker data.
+
+    Raises:
+        IOError: If watchlist cannot be saved.
     """
     _ensure_watchlist_dir()
-    with open(WATCHLIST_FILE, "w") as f:
-        json.dump(watchlist, f, indent=2)
+
+    # Use atomic write pattern: write to temp file, then rename
+    temp_file = WATCHLIST_FILE.with_suffix('.tmp')
+    try:
+        with open(temp_file, 'w') as f:
+            json.dump(watchlist, f, indent=2)
+        # Atomic on both POSIX and Windows
+        temp_file.replace(WATCHLIST_FILE)
+    except (IOError, OSError) as e:
+        # Clean up temp file if it exists
+        temp_file.unlink(missing_ok=True)
+        raise IOError(f"Failed to save watchlist: {e}") from e
 
 
 def get_stocks() -> list[str]:
@@ -84,7 +107,7 @@ def add_stock(ticker: str, note: str = "") -> bool:
         # Update note if provided
         if note:
             wl["stocks"][ticker]["note"] = note
-            wl["stocks"][ticker]["updated"] = datetime.now().isoformat()
+            wl["stocks"][ticker]["updated"] = datetime.now(UTC).isoformat()
             save_watchlist(wl)
         return False
 
@@ -92,7 +115,7 @@ def add_stock(ticker: str, note: str = "") -> bool:
         wl["stocks"] = {}
 
     wl["stocks"][ticker] = {
-        "added": datetime.now().isoformat(),
+        "added": datetime.now(UTC).isoformat(),
         "note": note,
     }
     save_watchlist(wl)
@@ -133,7 +156,7 @@ def update_cached_scores(ticker: str, scores: dict[str, Any]) -> None:
         return
 
     wl["stocks"][ticker]["cached_scores"] = scores
-    wl["stocks"][ticker]["cached_at"] = datetime.now().isoformat()
+    wl["stocks"][ticker]["cached_at"] = datetime.now(UTC).isoformat()
     save_watchlist(wl)
 
 
@@ -155,7 +178,7 @@ def get_cached_scores(ticker: str) -> dict[str, Any] | None:
     if data and "cached_scores" in data and "cached_at" in data:
         try:
             cached_at = datetime.fromisoformat(data["cached_at"])
-            age_seconds = (datetime.now() - cached_at).total_seconds()
+            age_seconds = (datetime.now(UTC) - cached_at).total_seconds()
             if age_seconds < SCORE_CACHE_TTL:
                 return data["cached_scores"]
         except (ValueError, TypeError):
@@ -178,7 +201,7 @@ def is_cache_expired(ticker: str) -> bool:
     if data and "cached_scores" in data and "cached_at" in data:
         try:
             cached_at = datetime.fromisoformat(data["cached_at"])
-            age_seconds = (datetime.now() - cached_at).total_seconds()
+            age_seconds = (datetime.now(UTC) - cached_at).total_seconds()
             return age_seconds >= SCORE_CACHE_TTL
         except (ValueError, TypeError):
             pass

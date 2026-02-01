@@ -49,96 +49,105 @@ with tab_history:
         if not history:
             st.info(f"No score history found for {ticker}. Score the stock first using the CLI or Compare page.")
         else:
-            # Convert to DataFrame for plotting
-            df = pd.DataFrame([{
-                "Year": h.fiscal_year,
-                "Period": h.fiscal_period,
-                "F-Score": h.piotroski_score,
-                "Z-Score": h.altman_z_score,
-                "Zone": h.altman_zone,
-                "Profitability": h.piotroski_profitability,
-                "Leverage": h.piotroski_leverage,
-                "Efficiency": h.piotroski_efficiency,
-            } for h in history])
+            # Filter out records with NULL fiscal data and convert to DataFrame
+            valid_history = [
+                h for h in history
+                if h.fiscal_year is not None and h.fiscal_period is not None
+            ]
 
-            # Sort by year
-            df = df.sort_values("Year")
+            if not valid_history:
+                st.info(f"No valid historical score data available for {ticker}.")
+            else:
+                # Convert to DataFrame for plotting
+                df = pd.DataFrame([{
+                    "Year": h.fiscal_year,
+                    "Period": h.fiscal_period,
+                    "F-Score": h.piotroski_score,
+                    "Z-Score": h.altman_z_score,
+                    "Zone": h.altman_zone,
+                    "Profitability": h.piotroski_profitability,
+                    "Leverage": h.piotroski_leverage,
+                    "Efficiency": h.piotroski_efficiency,
+                } for h in valid_history])
 
-            # Create dual-axis chart
-            fig = make_subplots(specs=[[{"secondary_y": True}]])
+                # Sort by year
+                df = df.sort_values("Year")
 
-            # F-Score line (primary y-axis)
-            fig.add_trace(
-                go.Scatter(
-                    x=df["Year"],
-                    y=df["F-Score"],
-                    name="F-Score",
-                    mode="lines+markers",
-                    line=dict(color="#2E86AB", width=3),
-                    marker=dict(size=10)
-                ),
-                secondary_y=False
-            )
+                # Create dual-axis chart
+                fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-            # Z-Score line (secondary y-axis)
-            fig.add_trace(
-                go.Scatter(
-                    x=df["Year"],
-                    y=df["Z-Score"],
-                    name="Z-Score",
-                    mode="lines+markers",
-                    line=dict(color="#A23B72", width=3),
-                    marker=dict(size=10)
-                ),
-                secondary_y=True
-            )
+                # F-Score line (primary y-axis)
+                fig.add_trace(
+                    go.Scatter(
+                        x=df["Year"],
+                        y=df["F-Score"],
+                        name="F-Score",
+                        mode="lines+markers",
+                        line=dict(color="#2E86AB", width=3),
+                        marker=dict(size=10)
+                    ),
+                    secondary_y=False
+                )
 
-            # Add zone bands to Z-Score axis
-            fig.add_hline(y=2.99, line_dash="dash", line_color="green",
-                         annotation_text="Safe Zone", secondary_y=True)
-            fig.add_hline(y=1.81, line_dash="dash", line_color="red",
-                         annotation_text="Distress Zone", secondary_y=True)
+                # Z-Score line (secondary y-axis)
+                fig.add_trace(
+                    go.Scatter(
+                        x=df["Year"],
+                        y=df["Z-Score"],
+                        name="Z-Score",
+                        mode="lines+markers",
+                        line=dict(color="#A23B72", width=3),
+                        marker=dict(size=10)
+                    ),
+                    secondary_y=True
+                )
 
-            fig.update_layout(
-                title=f"{ticker} Score History",
-                hovermode="x unified",
-                legend=dict(orientation="h", yanchor="bottom", y=1.02)
-            )
-            fig.update_yaxes(title_text="F-Score (0-9)", secondary_y=False, range=[0, 9])
-            fig.update_yaxes(title_text="Z-Score", secondary_y=True)
+                # Add zone bands to Z-Score axis
+                fig.add_hline(y=2.99, line_dash="dash", line_color="green",
+                             annotation_text="Safe Zone", secondary_y=True)
+                fig.add_hline(y=1.81, line_dash="dash", line_color="red",
+                             annotation_text="Distress Zone", secondary_y=True)
 
-            st.plotly_chart(fig, use_container_width=True)
+                fig.update_layout(
+                    title=f"{ticker} Score History",
+                    hovermode="x unified",
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02)
+                )
+                fig.update_yaxes(title_text="F-Score (0-9)", secondary_y=False, range=[0, 9])
+                fig.update_yaxes(title_text="Z-Score", secondary_y=True)
 
-            # Trend calculation
-            trend = analyzer.calculate_trend(ticker, periods=min(4, len(history)))
-            if trend:
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    direction_icon = {"improving": "+", "declining": "-", "stable": "="}
-                    st.metric(
-                        "F-Score Trend",
-                        trend.trend_direction.title(),
-                        f"{direction_icon.get(trend.trend_direction, '=')} {abs(trend.fscore_change):.1f} pts"
-                    )
-                with col2:
-                    zone_change_text = f"{trend.previous_zone} -> {trend.current_zone}" if trend.zone_changed else "No change"
-                    st.metric(
-                        "Z-Score Trend",
-                        f"{trend.zscore_change:+.2f}",
-                        zone_change_text
-                    )
-                with col3:
-                    st.metric("Periods Analyzed", trend.periods_analyzed)
+                st.plotly_chart(fig, use_container_width=True)
 
-            # F-Score component breakdown
-            st.subheader("F-Score Component Breakdown")
-            if "Profitability" in df.columns:
-                comp_fig = go.Figure()
-                comp_fig.add_trace(go.Bar(name="Profitability (0-4)", x=df["Year"], y=df["Profitability"]))
-                comp_fig.add_trace(go.Bar(name="Leverage (0-3)", x=df["Year"], y=df["Leverage"]))
-                comp_fig.add_trace(go.Bar(name="Efficiency (0-2)", x=df["Year"], y=df["Efficiency"]))
-                comp_fig.update_layout(barmode="stack", title="F-Score Components by Year")
-                st.plotly_chart(comp_fig, use_container_width=True)
+                # Trend calculation
+                trend = analyzer.calculate_trend(ticker, periods=min(4, len(valid_history)))
+                if trend:
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        direction_icon = {"improving": "+", "declining": "-", "stable": "="}
+                        st.metric(
+                            "F-Score Trend",
+                            trend.trend_direction.title(),
+                            f"{direction_icon.get(trend.trend_direction, '=')} {abs(trend.fscore_change):.1f} pts"
+                        )
+                    with col2:
+                        zone_change_text = f"{trend.previous_zone} -> {trend.current_zone}" if trend.zone_changed else "No change"
+                        st.metric(
+                            "Z-Score Trend",
+                            f"{trend.zscore_change:+.2f}",
+                            zone_change_text
+                        )
+                    with col3:
+                        st.metric("Periods Analyzed", trend.periods_analyzed)
+
+                # F-Score component breakdown
+                st.subheader("F-Score Component Breakdown")
+                if "Profitability" in df.columns:
+                    comp_fig = go.Figure()
+                    comp_fig.add_trace(go.Bar(name="Profitability (0-4)", x=df["Year"], y=df["Profitability"]))
+                    comp_fig.add_trace(go.Bar(name="Leverage (0-3)", x=df["Year"], y=df["Leverage"]))
+                    comp_fig.add_trace(go.Bar(name="Efficiency (0-2)", x=df["Year"], y=df["Efficiency"]))
+                    comp_fig.update_layout(barmode="stack", title="F-Score Components by Year")
+                    st.plotly_chart(comp_fig, use_container_width=True)
 
             # Raw data table
             with st.expander("View Raw Data"):

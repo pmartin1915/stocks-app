@@ -61,6 +61,7 @@ from asymmetric.cli.commands import (
     thesis,
     watchlist,
 )
+from asymmetric.config import config
 
 
 class OrderedGroup(click.Group):
@@ -117,6 +118,16 @@ def cli(ctx: click.Context) -> None:
     """
     ctx.ensure_object(dict)
     ctx.obj["console"] = console
+
+    # Validate configuration at startup (skip for quickstart command)
+    if ctx.invoked_subcommand not in ["quickstart", "status"]:
+        try:
+            config.validate()
+            config.ensure_directories()
+        except Exception as e:
+            console.print(f"[red]Configuration Error:[/red] {e}")
+            console.print("[yellow]Run 'asymmetric quickstart' to configure.[/yellow]")
+            raise SystemExit(1)
 
 
 # Register command groups
