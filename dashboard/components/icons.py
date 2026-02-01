@@ -6,7 +6,9 @@ that render consistently across all platforms.
 
 from typing import Optional
 
-# Color palette
+from dashboard.theme import get_color, get_semantic_color
+
+# Color palette (legacy - kept for compatibility with existing tests)
 COLORS = {
     "green": "#22c55e",
     "yellow": "#eab308",
@@ -14,6 +16,17 @@ COLORS = {
     "gray": "#6b7280",
     "blue": "#3b82f6",
 }
+
+
+def _get_semantic_colors() -> dict[str, str]:
+    """Get theme-aware semantic colors."""
+    return {
+        "green": get_semantic_color("green"),
+        "yellow": get_semantic_color("yellow"),
+        "red": get_semantic_color("red"),
+        "gray": get_semantic_color("gray"),
+        "blue": get_semantic_color("blue"),
+    }
 
 # Default icon size
 DEFAULT_SIZE = 18  # Slightly larger for better visibility
@@ -261,13 +274,16 @@ def status_badge(zone: str, size: str = "small") -> str:
     Returns:
         HTML badge string.
     """
+    colors = _get_semantic_colors()
+    text_on_accent = get_color("text_on_accent")
+    text_on_yellow = get_color("text_on_yellow")
     zone_styles = {
-        "safe": (COLORS["green"], "#fff"),
-        "grey": (COLORS["yellow"], "#1a1a1a"),
-        "gray": (COLORS["yellow"], "#1a1a1a"),
-        "distress": (COLORS["red"], "#fff"),
+        "safe": (colors["green"], text_on_accent),
+        "grey": (colors["yellow"], text_on_yellow),
+        "gray": (colors["yellow"], text_on_yellow),
+        "distress": (colors["red"], text_on_accent),
     }
-    bg, fg = zone_styles.get(zone.lower(), (COLORS["gray"], "#fff"))
+    bg, fg = zone_styles.get(zone.lower(), (colors["gray"], text_on_accent))
     return badge(zone.title(), bg, fg, size)
 
 
@@ -282,15 +298,19 @@ def fscore_badge(score: int | None, size: str = "small") -> str:
     Returns:
         HTML badge string.
     """
+    colors = _get_semantic_colors()
+    text_on_accent = get_color("text_on_accent")
+    text_on_yellow = get_color("text_on_yellow")
+
     if score is None:
-        return badge("N/A", COLORS["gray"], "#fff", size)
+        return badge("N/A", colors["gray"], text_on_accent, size)
 
     if score >= 7:
-        bg, fg = COLORS["green"], "#fff"
+        bg, fg = colors["green"], text_on_accent
     elif score >= 4:
-        bg, fg = COLORS["yellow"], "#1a1a1a"
+        bg, fg = colors["yellow"], text_on_yellow
     else:
-        bg, fg = COLORS["red"], "#fff"
+        bg, fg = colors["red"], text_on_accent
 
     return badge(f"F:{score}/9", bg, fg, size)
 
@@ -307,16 +327,20 @@ def zscore_badge(z_score: float | None, zone: str | None, size: str = "small") -
     Returns:
         HTML badge string.
     """
+    colors = _get_semantic_colors()
+    text_on_accent = get_color("text_on_accent")
+    text_on_yellow = get_color("text_on_yellow")
+
     if z_score is None or zone is None:
-        return badge("Z:N/A", COLORS["gray"], "#fff", size)
+        return badge("Z:N/A", colors["gray"], text_on_accent, size)
 
     zone_styles = {
-        "safe": (COLORS["green"], "#fff"),
-        "grey": (COLORS["yellow"], "#1a1a1a"),
-        "gray": (COLORS["yellow"], "#1a1a1a"),
-        "distress": (COLORS["red"], "#fff"),
+        "safe": (colors["green"], text_on_accent),
+        "grey": (colors["yellow"], text_on_yellow),
+        "gray": (colors["yellow"], text_on_yellow),
+        "distress": (colors["red"], text_on_accent),
     }
-    bg, fg = zone_styles.get(zone.lower(), (COLORS["gray"], "#fff"))
+    bg, fg = zone_styles.get(zone.lower(), (colors["gray"], text_on_accent))
     return badge(f"Z:{z_score:.1f}", bg, fg, size)
 
 
@@ -331,13 +355,16 @@ def action_badge(action: str, size: str = "small") -> str:
     Returns:
         HTML badge string.
     """
+    colors = _get_semantic_colors()
+    text_on_accent = get_color("text_on_accent")
+    text_on_yellow = get_color("text_on_yellow")
     action_styles = {
-        "buy": (COLORS["green"], "#fff", "BUY"),
-        "hold": (COLORS["yellow"], "#1a1a1a", "HOLD"),
-        "sell": (COLORS["red"], "#fff", "SELL"),
-        "pass": (COLORS["gray"], "#fff", "PASS"),
+        "buy": (colors["green"], text_on_accent, "BUY"),
+        "hold": (colors["yellow"], text_on_yellow, "HOLD"),
+        "sell": (colors["red"], text_on_accent, "SELL"),
+        "pass": (colors["gray"], text_on_accent, "PASS"),
     }
-    bg, fg, label = action_styles.get(action.lower(), (COLORS["gray"], "#fff", action.upper()))
+    bg, fg, label = action_styles.get(action.lower(), (colors["gray"], text_on_accent, action.upper()))
     return badge(label, bg, fg, size)
 
 
@@ -352,12 +379,15 @@ def thesis_status_badge(status: str, size: str = "small") -> str:
     Returns:
         HTML badge string.
     """
+    colors = _get_semantic_colors()
+    text_on_accent = get_color("text_on_accent")
+    text_on_yellow = get_color("text_on_yellow")
     status_styles = {
-        "draft": (COLORS["yellow"], "#1a1a1a", "Draft"),
-        "active": (COLORS["green"], "#fff", "Active"),
-        "archived": (COLORS["gray"], "#fff", "Archived"),
+        "draft": (colors["yellow"], text_on_yellow, "Draft"),
+        "active": (colors["green"], text_on_accent, "Active"),
+        "archived": (colors["gray"], text_on_accent, "Archived"),
     }
-    bg, fg, label = status_styles.get(status.lower(), (COLORS["gray"], "#fff", status.title()))
+    bg, fg, label = status_styles.get(status.lower(), (colors["gray"], text_on_accent, status.title()))
     return badge(label, bg, fg, size)
 
 

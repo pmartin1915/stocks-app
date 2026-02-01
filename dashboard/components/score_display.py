@@ -1,10 +1,18 @@
-"""Reusable score visualization components for the dashboard."""
+"""Reusable score visualization components for the dashboard.
+
+Provides multiple visualization styles:
+- Basic progress bars (original)
+- Segmented gauges (enhanced)
+- Zone gradient indicators
+"""
 
 from typing import Any
 
 import streamlit as st
 
 from dashboard.components import icons
+from dashboard.components.icons import COLORS
+from dashboard.theme import get_color, get_semantic_color
 
 
 def render_fscore(score: int | None, show_label: bool = True) -> None:
@@ -26,6 +34,258 @@ def render_fscore(score: int | None, show_label: bool = True) -> None:
 
     # Show progress bar (text can't contain HTML, so just show score)
     st.progress(score / 9, text=f"{score}/9")
+
+
+def render_fscore_gauge(score: int | None, show_label: bool = True) -> None:
+    """
+    Render F-Score as a segmented gauge with 9 discrete segments.
+
+    Args:
+        score: Piotroski F-Score (0-9), or None for N/A display.
+        show_label: Whether to show label with interpretation.
+    """
+    if score is None:
+        if show_label:
+            st.markdown(
+                f'<span style="color:{COLORS["gray"]}">F-Score: N/A</span>',
+                unsafe_allow_html=True,
+            )
+        return
+
+    # Determine color and interpretation
+    if score >= 7:
+        color = COLORS["green"]
+        interp = "Strong"
+    elif score >= 4:
+        color = COLORS["yellow"]
+        interp = "Moderate"
+    else:
+        color = COLORS["red"]
+        interp = "Weak"
+
+    if show_label:
+        st.markdown(
+            f"""
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <span style="font-weight:600">F-Score: {score}/9</span>
+                <span style="color:{color};font-weight:600">{interp}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # Build 9-segment bar
+    border_color = get_color("border")
+    segments = []
+    for i in range(9):
+        if i < score:
+            seg_color = color
+        else:
+            seg_color = border_color
+        segments.append(
+            f'<div style="flex:1;height:14px;background:{seg_color};'
+            f'border-radius:2px"></div>'
+        )
+
+    bar_html = f'<div style="display:flex;gap:3px">{" ".join(segments)}</div>'
+    st.markdown(bar_html, unsafe_allow_html=True)
+
+
+def render_zscore_gauge(z_score: float | None, zone: str | None) -> None:
+    """
+    Render Z-Score with visual zone gradient indicator.
+
+    Shows position on a gradient bar with Distress/Grey/Safe zones.
+
+    Args:
+        z_score: Altman Z-Score value.
+        zone: Zone classification.
+    """
+    if z_score is None or zone is None:
+        st.markdown(
+            f'<span style="color:{COLORS["gray"]}">Z-Score: N/A</span>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    # Zone thresholds
+    distress_threshold = 1.81
+    safe_threshold = 2.99
+    max_display = 5.0  # Cap display at 5.0 for visualization
+
+    # Normalize to percentage (0-100)
+    normalized = min(z_score, max_display) / max_display * 100
+    normalized = max(0, min(100, normalized))
+
+    # Zone percentages for gradient
+    distress_pct = (distress_threshold / max_display) * 100
+    safe_pct = (safe_threshold / max_display) * 100
+
+    # Determine zone color for badge
+    zone_lower = zone.lower()
+    if zone_lower == "safe":
+        zone_color = COLORS["green"]
+    elif zone_lower in ("grey", "gray"):
+        zone_color = COLORS["yellow"]
+    else:
+        zone_color = COLORS["red"]
+
+    # Header with value and zone
+    st.markdown(
+        f"""
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-weight:600">Z-Score: {z_score:.2f}</span>
+            <span style="background:{zone_color};color:#fff;padding:2px 8px;
+                        border-radius:12px;font-size:0.8rem;font-weight:600">{zone}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Zone labels
+    text_secondary = get_color("text_secondary")
+    st.markdown(
+        f"""
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:{text_secondary};margin-bottom:2px">
+            <span>Distress</span>
+            <span>Grey Zone</span>
+            <span>Safe</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Gradient bar with position marker
+    bg_primary = get_color("bg_primary")
+    text_primary = get_color("text_primary")
+    # Use semantic colors for the gradient
+    red = get_semantic_color("red")
+    yellow = get_semantic_color("yellow")
+    green = get_semantic_color("green")
+    st.markdown(
+        f"""
+        <div style="position:relative;height:20px;border-radius:4px;
+                    background:linear-gradient(to right,
+                        {red} 0%,
+                        {red} {distress_pct}%,
+                        {yellow} {distress_pct}%,
+                        {yellow} {safe_pct}%,
+                        {green} {safe_pct}%,
+                        {green} 100%)">
+            <div style="position:absolute;left:{normalized}%;top:50%;
+                        transform:translate(-50%, -50%);
+                        width:12px;height:12px;background:{bg_primary};
+                        border:2px solid {text_primary};border-radius:50%;
+                        box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Threshold labels
+    st.markdown(
+        f"""
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:{text_secondary};margin-top:2px">
+            <span>&lt;1.81</span>
+            <span>1.81-2.99</span>
+            <span>&gt;2.99</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_conviction_gauge(conviction: int | None, max_level: int = 5) -> None:
+    """
+    Render conviction level with stars and progress bar.
+
+    Args:
+        conviction: Conviction level (1-5).
+        max_level: Maximum conviction level.
+    """
+    if conviction is None:
+        st.markdown(
+            f'<span style="color:{COLORS["gray"]}">Conviction: N/A</span>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    conviction = max(1, min(conviction, max_level))
+
+    # Conviction labels
+    labels = {
+        1: ("Very Low", COLORS["red"]),
+        2: ("Low", COLORS["yellow"]),
+        3: ("Medium", COLORS["yellow"]),
+        4: ("High", COLORS["green"]),
+        5: ("Very High", COLORS["green"]),
+    }
+    label, color = labels.get(conviction, ("Unknown", COLORS["gray"]))
+
+    # Stars
+    stars = icons.stars_rating(conviction, max_stars=max_level, size=16)
+
+    st.markdown(
+        f"""
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-weight:600">Conviction</span>
+            <span>{stars}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Progress bar segments
+    border_color = get_color("border")
+    segments = []
+    for i in range(max_level):
+        if i < conviction:
+            seg_color = color
+        else:
+            seg_color = border_color
+        segments.append(
+            f'<div style="flex:1;height:8px;background:{seg_color};border-radius:2px"></div>'
+        )
+
+    st.markdown(
+        f"""
+        <div style="display:flex;gap:3px">{" ".join(segments)}</div>
+        <div style="text-align:right;font-size:0.8rem;color:{color};margin-top:2px">{label}</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_score_panel(
+    piotroski: dict[str, Any] | None,
+    altman: dict[str, Any] | None,
+    use_gauges: bool = True,
+) -> None:
+    """
+    Render score panel with both F-Score and Z-Score gauges.
+
+    Args:
+        piotroski: Dict with piotroski score data.
+        altman: Dict with altman score data.
+        use_gauges: Use enhanced gauge display (True) or basic progress bars (False).
+    """
+    if use_gauges:
+        # F-Score gauge
+        if piotroski:
+            render_fscore_gauge(piotroski.get("score"), show_label=True)
+        else:
+            render_fscore_gauge(None, show_label=True)
+
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+        # Z-Score gauge
+        if altman:
+            render_zscore_gauge(altman.get("z_score"), altman.get("zone"))
+        else:
+            render_zscore_gauge(None, None)
+    else:
+        # Original progress bar style
+        render_score_summary(piotroski, altman)
 
 
 def render_fscore_badge(score: int | None) -> str:

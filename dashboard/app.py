@@ -16,9 +16,28 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Initialize theme in session state (must be before any theme-dependent rendering)
+if "theme" not in st.session_state:
+    st.session_state.theme = "light"
+
 # Sidebar branding
 st.sidebar.title("Asymmetric")
 st.sidebar.caption("Long-term value investing research")
+
+# Theme selector
+theme_col1, theme_col2 = st.sidebar.columns([3, 1])
+with theme_col1:
+    st.caption("Theme")
+with theme_col2:
+    # Use a toggle for cleaner UX
+    is_dark = st.toggle(
+        "🌙",
+        value=st.session_state.theme == "dark",
+        key="theme_toggle",
+        help="Toggle dark mode",
+    )
+    st.session_state.theme = "dark" if is_dark else "light"
+
 st.sidebar.divider()
 
 # Navigation hints in sidebar
