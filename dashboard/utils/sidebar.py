@@ -32,9 +32,16 @@ def render_theme_toggle():
             help="Toggle dark mode",
         )
         new_theme = "dark" if is_dark else "light"
+
+        # DEBUG: Log toggle state changes
+        if "debug_toggle_clicks" not in st.session_state:
+            st.session_state.debug_toggle_clicks = 0
+
         # Only rerun if theme actually changed (prevents infinite loop)
         if st.session_state.theme != new_theme:
+            st.session_state.debug_toggle_clicks += 1
             st.session_state.theme = new_theme
+            st.write(f"🔄 Rerunning... (click #{st.session_state.debug_toggle_clicks})")
             st.rerun()
 
 
@@ -66,8 +73,34 @@ def render_debug_info():
     """
     st.sidebar.divider()
     st.sidebar.caption("🔍 Debug Info")
-    st.sidebar.text(f"Theme: {st.session_state.get('theme', 'unknown')}")
-    st.sidebar.text(f"Green: {get_semantic_color('green')}")
+
+    # Show current theme state
+    current_theme = st.session_state.get('theme', 'unknown')
+    st.sidebar.text(f"Theme: {current_theme}")
+
+    # Show color values
+    green = get_semantic_color('green')
+    blue = get_semantic_color('blue')
+    red = get_semantic_color('red')
+
+    st.sidebar.text(f"Green: {green}")
+    st.sidebar.text(f"Blue: {blue}")
+    st.sidebar.text(f"Red: {red}")
+
+    # Expected values for verification
+    if current_theme == "light":
+        st.sidebar.caption("Expected: #22c55e, #3b82f6, #ef4444")
+    else:
+        st.sidebar.caption("Expected: #10b981, #60a5fa, #f87171")
+
+    # Visual color swatches
+    st.sidebar.markdown(f"""
+<div style="display:flex; gap:10px; margin-top:10px;">
+    <div style="background:{green}; width:30px; height:30px; border-radius:4px;"></div>
+    <div style="background:{blue}; width:30px; height:30px; border-radius:4px;"></div>
+    <div style="background:{red}; width:30px; height:30px; border-radius:4px;"></div>
+</div>
+""", unsafe_allow_html=True)
 
 
 def render_full_sidebar():
