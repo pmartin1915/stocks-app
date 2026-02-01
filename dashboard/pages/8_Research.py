@@ -705,8 +705,10 @@ def render_review_outcomes_tab() -> None:
 
                 with col2:
                     st.markdown("#### 📊 Actual Outcome")
+                    from dashboard.theme import get_color
+                    text_on_accent = get_color('text_on_accent')
                     st.markdown(
-                        f"<div style='background:{badge_color};color:#fff;padding:4px 12px;"
+                        f"<div style='background:{badge_color};color:{text_on_accent};padding:4px 12px;"
                         f"border-radius:4px;display:inline-block;font-weight:600'>{badge_text}</div>",
                         unsafe_allow_html=True,
                     )

@@ -132,11 +132,12 @@ def render_zscore_gauge(z_score: float | None, zone: str | None) -> None:
         zone_color = get_semantic_color("red")
 
     # Header with value and zone
+    text_on_accent = get_color("text_on_accent")
     st.markdown(
         f"""
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
             <span style="font-weight:600">Z-Score: {z_score:.2f}</span>
-            <span style="background:{zone_color};color:#fff;padding:2px 8px;
+            <span style="background:{zone_color};color:{text_on_accent};padding:2px 8px;
                         border-radius:12px;font-size:0.8rem;font-weight:600">{zone}</span>
         </div>
         """,
