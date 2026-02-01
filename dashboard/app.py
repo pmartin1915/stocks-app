@@ -36,7 +36,11 @@ with theme_col2:
         key="theme_toggle",
         help="Toggle dark mode",
     )
-    st.session_state.theme = "dark" if is_dark else "light"
+    new_theme = "dark" if is_dark else "light"
+    # Only rerun if theme actually changed (prevents infinite loop)
+    if st.session_state.theme != new_theme:
+        st.session_state.theme = new_theme
+        st.rerun()
 
 st.sidebar.divider()
 
