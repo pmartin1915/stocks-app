@@ -504,7 +504,19 @@ class GeminiClient:
 
             # Generate response
             response = model_instance.generate_content(prompt)
-            output_text = response.text
+
+            # Safely extract text from response
+            if hasattr(response, 'text'):
+                output_text = response.text
+            elif hasattr(response, 'parts') and response.parts:
+                # Some responses have parts instead of text
+                output_text = ''.join(part.text for part in response.parts if hasattr(part, 'text'))
+            else:
+                # Response was blocked or empty
+                raise ValueError(
+                    f"Gemini response blocked or empty. "
+                    f"Finish reason: {getattr(response, 'prompt_feedback', 'unknown')}"
+                )
 
             # Get token counts from response
             input_tokens = token_count
@@ -585,7 +597,16 @@ class GeminiClient:
         for item in items:
             prompt = f"{classification_prompt}\n\nItem: {item}"
             response = model_instance.generate_content(prompt)
-            results.append({"item": item, "classification": response.text.strip()})
+
+            # Safely extract text from response
+            if hasattr(response, 'text'):
+                classification = response.text.strip()
+            elif hasattr(response, 'parts') and response.parts:
+                classification = ''.join(part.text for part in response.parts if hasattr(part, 'text')).strip()
+            else:
+                classification = "[blocked]"
+
+            results.append({"item": item, "classification": classification})
 
         return results
 
