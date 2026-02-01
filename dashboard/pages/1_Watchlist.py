@@ -1,7 +1,8 @@
 """
 Watchlist Page - View and manage your tracked stocks.
 
-Displays all watchlist stocks with F-Score and Z-Score indicators.
+Displays all watchlist stocks with F-Score and Z-Score indicators,
+price data from Yahoo Finance, and thesis/decision status.
 Supports adding/removing stocks and refreshing scores from SEC EDGAR.
 """
 
@@ -11,11 +12,15 @@ from datetime import datetime
 import streamlit as st
 
 from dashboard.components.score_display import (
-    render_fscore_badge,
     render_score_detail,
-    render_score_summary,
-    render_zscore_badge,
+    render_score_panel,
 )
+from dashboard.components.stock_card import (
+    render_price_with_range,
+    render_sparkline,
+    render_stock_card_header,
+)
+from dashboard.components import icons
 from dashboard.utils.scoring import get_scores_for_ticker, refresh_scores
 from dashboard.utils.watchlist import (
     add_stock,
@@ -219,6 +224,35 @@ else:
             f"**{ticker}** — {fscore_text} | {zscore_text}",
             expanded=False,
         ):
+            # Header with price and scores
+            render_stock_card_header(ticker)
+
+            # Price and sparkline row
+            price_col, spark_col, score_col = st.columns([1.5, 1, 1.5])
+
+            with price_col:
+                render_price_with_range(ticker)
+
+            with spark_col:
+                sparkline = render_sparkline(ticker)
+                if sparkline:
+                    st.markdown(sparkline, unsafe_allow_html=True)
+
+            with score_col:
+                # Score badges
+                score_parts = []
+                if piotroski:
+                    score_parts.append(icons.fscore_badge(piotroski.get("score"), size="normal"))
+                if altman:
+                    score_parts.append(icons.zscore_badge(altman.get("z_score"), altman.get("zone"), size="normal"))
+                    score_parts.append(icons.status_badge(altman.get("zone") or "neutral", size="normal"))
+                if score_parts:
+                    st.markdown(" ".join(score_parts), unsafe_allow_html=True)
+                else:
+                    st.caption("No scores")
+
+            st.divider()
+
             # Stock info row
             col1, col2, col3 = st.columns([2, 2, 1])
 
@@ -255,9 +289,10 @@ else:
 
             st.divider()
 
-            # Score display
+            # Enhanced score display with gauges
             if cached_scores:
-                render_score_summary(piotroski, altman)
+                # Use new gauge display
+                render_score_panel(piotroski, altman, use_gauges=True)
                 st.divider()
                 render_score_detail(piotroski, altman)
             else:

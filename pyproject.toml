@@ -22,6 +22,9 @@ uvicorn = "^0.34"              # ASGI server for MCP HTTP transport
 streamlit = "^1.32"            # Dashboard UI
 pandas = "^2.0"                # Data manipulation for dashboard
 plotly = "^5.18"               # Interactive charts for trend visualization
+yfinance = "^0.2"              # Yahoo Finance price data
+streamlit-aggrid = "^1.0"      # AgGrid for interactive tables
+streamlit-screen-stats = "^0.1.0"  # Mobile responsive detection
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"

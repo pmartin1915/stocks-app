@@ -190,3 +190,50 @@ def format_last_refresh(iso_str: str | None) -> str:
     except (ValueError, TypeError, AttributeError) as e:
         logger.debug("Error formatting timestamp %s: %s", iso_str, e)
         return "Unknown"
+
+
+def get_sector_heatmap_data(results: list[dict[str, Any]]) -> Any:
+    """
+    Enrich screener results with sector and market cap data for treemap visualization.
+
+    Args:
+        results: List of dicts from get_screener_results with ticker, piotroski_score, etc.
+
+    Returns:
+        pandas DataFrame with: ticker, sector, market_cap, piotroski_score, altman_zone, company_name
+    """
+    import pandas as pd
+
+    from dashboard.utils.price_data import get_price_data
+
+    # Enrich each result with sector and market cap
+    enriched = []
+
+    for result in results[:50]:  # Limit to first 50 for performance
+        ticker = result.get("ticker")
+        if not ticker:
+            continue
+
+        # Fetch price data (which includes sector info from yfinance)
+        price_info = get_price_data(ticker)
+
+        # Default sector if not available
+        sector = price_info.get("sector", "Unknown")
+        if not sector or sector == "N/A":
+            sector = "Unknown"
+
+        # Get market cap
+        market_cap = price_info.get("market_cap", 1_000_000)  # Default 1M if not available
+        if not market_cap or market_cap == 0:
+            market_cap = 1_000_000
+
+        enriched.append({
+            "ticker": ticker,
+            "company_name": result.get("company_name", ticker),
+            "sector": sector,
+            "market_cap": market_cap,
+            "piotroski_score": result.get("piotroski_score", 0),
+            "altman_zone": result.get("altman_zone", "Unknown"),
+        })
+
+    return pd.DataFrame(enriched)

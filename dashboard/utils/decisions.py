@@ -503,3 +503,174 @@ def get_stock_latest_scores(ticker: str) -> Optional[dict[str, Any]]:
                 "interpretation": score.altman_interpretation,
             },
         }
+
+
+# ========== Outcome Tracking Functions ==========
+
+
+def update_decision_outcome(
+    decision_id: int,
+    actual_outcome: str,
+    actual_price: Optional[float] = None,
+    lessons_learned: Optional[str] = None,
+    hit: Optional[bool] = None,
+) -> bool:
+    """
+    Update a decision with outcome information.
+
+    Args:
+        decision_id: The decision ID to update.
+        actual_outcome: Description of what actually happened (e.g., "success", "partial", "failure").
+        actual_price: Price at time of outcome review.
+        lessons_learned: Reflection notes for future reference.
+        hit: True if thesis proved correct, False otherwise.
+
+    Returns:
+        True if updated, False if decision not found.
+    """
+    init_db()
+
+    with get_session() as session:
+        decision = session.get(Decision, decision_id)
+        if not decision:
+            return False
+
+        decision.actual_outcome = actual_outcome
+        decision.outcome_date = datetime.now(UTC)
+        decision.actual_price = actual_price
+        decision.lessons_learned = lessons_learned
+        decision.hit = hit
+
+        session.add(decision)
+        session.commit()
+        return True
+
+
+def get_decisions_with_outcomes(
+    ticker: Optional[str] = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """
+    Fetch decisions that have outcome data recorded.
+
+    Args:
+        ticker: Optional ticker filter.
+        limit: Maximum results.
+
+    Returns:
+        List of decision dicts including outcome data.
+    """
+    init_db()
+
+    with get_session() as session:
+        query = (
+            select(Decision, Thesis, Stock)
+            .join(Thesis, Decision.thesis_id == Thesis.id)
+            .join(Stock, Thesis.stock_id == Stock.id)
+            .where(Decision.actual_outcome.isnot(None))
+        )
+
+        if ticker:
+            query = query.where(Stock.ticker == ticker.upper())
+
+        query = query.order_by(Decision.outcome_date.desc()).limit(limit)
+
+        results = []
+        for decision, thesis, stock in session.exec(query):
+            results.append({
+                "id": decision.id,
+                "ticker": stock.ticker,
+                "company_name": stock.company_name,
+                "action": decision.decision,
+                "confidence": decision.confidence,
+                "target_price": decision.target_price,
+                "stop_loss": decision.stop_loss,
+                "rationale": decision.rationale,
+                "decided_at": decision.decided_at.isoformat() if decision.decided_at else None,
+                "actual_outcome": decision.actual_outcome,
+                "outcome_date": decision.outcome_date.isoformat() if decision.outcome_date else None,
+                "actual_price": decision.actual_price,
+                "lessons_learned": decision.lessons_learned,
+                "hit": decision.hit,
+                "thesis_summary": thesis.summary,
+            })
+        return results
+
+
+def analyze_by_conviction(decisions_with_outcomes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Analyze hit rate grouped by conviction level.
+
+    Args:
+        decisions_with_outcomes: List of decisions with outcome data.
+
+    Returns:
+        List of dicts with conviction_level, hit_count, total_count, hit_rate_pct.
+    """
+    from collections import defaultdict
+
+    # Group by conviction
+    conviction_stats = defaultdict(lambda: {"hits": 0, "total": 0})
+
+    for decision in decisions_with_outcomes:
+        conviction = decision.get("confidence") or 3  # Default to medium
+        hit = decision.get("hit")
+
+        if hit is not None:  # Only count decisions with explicit hit/miss
+            conviction_stats[conviction]["total"] += 1
+            if hit:
+                conviction_stats[conviction]["hits"] += 1
+
+    # Convert to list
+    results = []
+    for conviction_level in range(1, 6):  # 1-5 scale
+        stats = conviction_stats.get(conviction_level, {"hits": 0, "total": 0})
+        total = stats["total"]
+        hits = stats["hits"]
+        hit_rate = (hits / total * 100) if total > 0 else 0
+
+        results.append({
+            "conviction_level": conviction_level,
+            "hit_count": hits,
+            "total_count": total,
+            "hit_rate_pct": round(hit_rate, 1),
+        })
+
+    return results
+
+
+def calculate_portfolio_return(
+    decisions_with_outcomes: list[dict[str, Any]],
+    conviction_min: int = 1,
+) -> float:
+    """
+    Calculate hypothetical portfolio return based on decision outcomes.
+
+    Assumes equal position sizing and uses price change from target to actual.
+
+    Args:
+        decisions_with_outcomes: List of decisions with outcome data.
+        conviction_min: Minimum conviction level to include (1-5).
+
+    Returns:
+        Average return percentage across qualifying decisions.
+    """
+    returns = []
+
+    for decision in decisions_with_outcomes:
+        confidence = decision.get("confidence") or 3
+        if confidence < conviction_min:
+            continue
+
+        target = decision.get("target_price")
+        actual = decision.get("actual_price")
+
+        if target and actual and target > 0:
+            # Calculate return percentage
+            ret = ((actual - target) / target) * 100
+            returns.append(ret)
+
+    if not returns:
+        return 0.0
+
+    return sum(returns) / len(returns)

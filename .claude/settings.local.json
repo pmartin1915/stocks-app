@@ -1,6 +1,11 @@
 {
   "permissions": {
     "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
       "Bash(.venv/Scripts/python -m pytest tests/test_compare_command.py tests/test_watchlist_command.py -v --tb=short)",
       "Bash(tasklist:*)",
       "Bash(Get-Content \"C:\\\\Users\\\\perry\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--stocks-app\\\\tasks\\\\b7bb406.output\" -Tail 50)"

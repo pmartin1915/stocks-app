@@ -3,6 +3,7 @@ Screener Page - Find investment opportunities by quantitative criteria.
 
 Filters stocks using precomputed Piotroski F-Score and Altman Z-Score
 from DuckDB bulk data (zero API calls during screening).
+Enhanced with price data from Yahoo Finance.
 """
 
 import pandas as pd
@@ -15,6 +16,7 @@ from dashboard.utils.bulk_data import (
     get_screener_results,
     has_precomputed_scores,
 )
+from dashboard.utils.price_data import get_price_data, format_large_number
 from dashboard.utils.watchlist import add_stock, get_stocks
 
 st.title("Screener")
@@ -183,14 +185,42 @@ else:
 
     # Get current watchlist for comparison
     watchlist = set(get_stocks())
-    df["on_watchlist"] = df["ticker"].apply(lambda x: "Yes" if x in watchlist else "")
+    df["on_watchlist"] = df["ticker"].apply(lambda x: "✓" if x in watchlist else "")
+
+    # Add price data for top results (limit to avoid slow loads)
+    price_limit = min(len(df), 25)  # Only fetch prices for first 25
+    prices = []
+    changes = []
+    market_caps = []
+
+    for i, ticker in enumerate(df["ticker"]):
+        if i < price_limit:
+            price_data = get_price_data(ticker)
+            if "error" not in price_data:
+                prices.append(price_data.get("price"))
+                changes.append(price_data.get("change_pct"))
+                market_caps.append(format_large_number(price_data.get("market_cap")))
+            else:
+                prices.append(None)
+                changes.append(None)
+                market_caps.append("N/A")
+        else:
+            prices.append(None)
+            changes.append(None)
+            market_caps.append("—")
+
+    df["price"] = prices
+    df["change_pct"] = changes
+    df["market_cap"] = market_caps
 
     # Select and reorder columns for display
     display_columns = [
         "ticker",
         "company_name",
+        "price",
+        "change_pct",
+        "market_cap",
         "piotroski_score",
-        "piotroski_interpretation",
         "altman_z_score",
         "altman_zone",
         "fiscal_year",
@@ -204,12 +234,14 @@ else:
     column_renames = {
         "ticker": "Ticker",
         "company_name": "Company",
+        "price": "Price",
+        "change_pct": "Change %",
+        "market_cap": "Mkt Cap",
         "piotroski_score": "F-Score",
-        "piotroski_interpretation": "Interpretation",
         "altman_z_score": "Z-Score",
         "altman_zone": "Zone",
         "fiscal_year": "FY",
-        "on_watchlist": "Watching",
+        "on_watchlist": "Watch",
     }
     df_display = df_display.rename(columns=column_renames)
 
@@ -221,21 +253,87 @@ else:
         column_config={
             "Ticker": st.column_config.TextColumn("Ticker", width="small"),
             "Company": st.column_config.TextColumn("Company", width="medium"),
+            "Price": st.column_config.NumberColumn("Price", format="$%.2f"),
+            "Change %": st.column_config.NumberColumn(
+                "Change %",
+                format="%.2f%%",
+                help="Daily price change percentage",
+            ),
+            "Mkt Cap": st.column_config.TextColumn("Mkt Cap", width="small"),
             "F-Score": st.column_config.ProgressColumn(
                 "F-Score",
                 format="%d/9",
                 min_value=0,
                 max_value=9,
             ),
-            "Interpretation": st.column_config.TextColumn(
-                "Interpretation", width="medium"
-            ),
             "Z-Score": st.column_config.NumberColumn("Z-Score", format="%.2f"),
             "Zone": st.column_config.TextColumn("Zone", width="small"),
             "FY": st.column_config.NumberColumn("FY", format="%d"),
-            "Watching": st.column_config.TextColumn("Watching", width="small"),
+            "Watch": st.column_config.TextColumn("Watch", width="small"),
         },
     )
+
+    # Note about price data
+    if len(df) > price_limit:
+        st.caption(f"💡 Price data shown for first {price_limit} results only.")
+
+    # Sector Heatmap visualization
+    st.divider()
+    st.subheader("Sector Heatmap")
+    st.caption("Visual breakdown by sector, sized by market cap, colored by F-Score")
+
+    if len(results) >= 10:
+        with st.spinner("Loading sector data for heatmap..."):
+            try:
+                from dashboard.utils.bulk_data import get_sector_heatmap_data
+                import plotly.express as px
+
+                heatmap_data = get_sector_heatmap_data(results)
+
+                if not heatmap_data.empty and len(heatmap_data) > 0:
+                    # Treemap: size = market cap, color = F-Score
+                    fig = px.treemap(
+                        heatmap_data,
+                        path=[px.Constant("Market"), "sector", "ticker"],
+                        values="market_cap",
+                        color="piotroski_score",
+                        color_continuous_scale=[[0, "#ef4444"], [0.5, "#eab308"], [1, "#22c55e"]],
+                        range_color=[0, 9],
+                        hover_data={
+                            "company_name": True,
+                            "piotroski_score": True,
+                            "altman_zone": True,
+                            "market_cap": ":,.0f",
+                        },
+                        labels={
+                            "piotroski_score": "F-Score",
+                            "market_cap": "Market Cap",
+                        },
+                    )
+                    fig.update_traces(
+                        textinfo="label+value",
+                        hovertemplate="<b>%{label}</b><br>" +
+                                      "F-Score: %{color}<br>" +
+                                      "Market Cap: $%{value:,.0f}<br>" +
+                                      "<extra></extra>",
+                    )
+                    fig.update_layout(
+                        height=500,
+                        margin=dict(t=50, l=25, r=25, b=25),
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    st.caption(
+                        "**How to read:** Box size = market capitalization. "
+                        "Color = F-Score (green=strong, yellow=moderate, red=weak). "
+                        "Grouped by sector."
+                    )
+                else:
+                    st.info("Not enough sector data available for heatmap. Try broadening your filters.")
+            except Exception as e:
+                st.warning(f"Could not generate heatmap: {e}")
+    else:
+        st.info("Heatmap requires at least 10 results. Adjust your filters to see more stocks.")
 
 st.divider()
 

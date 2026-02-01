@@ -3,12 +3,14 @@ Compare Page - Side-by-side stock comparison with AI analysis.
 
 Compare 2-3 stocks with F-Score and Z-Score breakdowns, winner highlighting,
 and optional AI-powered analysis via Gemini.
+Enhanced with price data and improved AI content display.
 """
 
 import re
 
 import streamlit as st
 
+from dashboard.components.ai_content import render_ai_section
 from dashboard.components.comparison import (
     render_best_candidate,
     render_comparison_table,
@@ -18,7 +20,6 @@ from dashboard.components.comparison import (
 from dashboard.utils.ai_analysis import (
     build_comparison_context,
     estimate_analysis_cost,
-    format_analysis_metadata,
     get_gemini_client_cached,
     run_comparison_analysis,
 )
@@ -248,13 +249,15 @@ if st.session_state.compare_results:
                     if "error" in ai_result:
                         st.error(ai_result.get("message", "Analysis failed"))
                     else:
-                        # Show metadata
-                        metadata = format_analysis_metadata(ai_result)
-                        if metadata:
-                            st.caption(metadata)
-
-                        # Show analysis content
-                        st.markdown(ai_result.get("content", ""))
+                        # Use enhanced AI content display with feedback
+                        render_ai_section(
+                            content=ai_result.get("content", ""),
+                            model=ai_result.get("model", "unknown"),
+                            cost=ai_result.get("cost_usd"),
+                            timestamp=ai_result.get("timestamp"),
+                            content_type="comparison",
+                            ticker=",".join(st.session_state.compare_tickers),
+                        )
 
                         # Create Thesis from Analysis
                         st.divider()

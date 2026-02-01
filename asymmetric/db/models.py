@@ -139,7 +139,7 @@ class Decision(SQLModel, table=True):
     """
     Investment decision record.
 
-    Tracks decisions made based on theses.
+    Tracks decisions made based on theses and outcomes for retrospective analysis.
     """
 
     __tablename__ = "decisions"
@@ -155,6 +155,13 @@ class Decision(SQLModel, table=True):
     # Optional: Price targets
     target_price: Optional[float] = None
     stop_loss: Optional[float] = None
+
+    # Outcome tracking (for before/after analysis)
+    actual_outcome: Optional[str] = Field(default=None, max_length=50)  # "success", "partial", "failure", custom
+    outcome_date: Optional[datetime] = None  # When outcome was reviewed
+    actual_price: Optional[float] = None  # Price at outcome review
+    lessons_learned: Optional[str] = None  # Reflection notes for future reference
+    hit: Optional[bool] = None  # True if thesis proved correct, False otherwise
 
     # Timestamps
     decided_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -229,3 +236,32 @@ class ScoreHistory(SQLModel, table=True):
 
     # Relationship
     stock: Optional[Stock] = Relationship(back_populates="score_history")
+
+
+class AIFeedback(SQLModel, table=True):
+    """
+    Track user feedback on AI-generated content.
+
+    Used to improve prompts and track which AI outputs are helpful.
+    """
+
+    __tablename__ = "ai_feedback"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # Content identification
+    content_type: str = Field(max_length=50)  # "analysis", "thesis", "risk"
+    content_hash: str = Field(index=True, max_length=32)  # MD5 hash for deduplication
+    ticker: str = Field(max_length=10)
+
+    # Model info
+    model: str = Field(max_length=50)  # "flash", "pro", "gemini-2.5-flash"
+    prompt_summary: Optional[str] = Field(default=None, max_length=200)  # First 200 chars
+
+    # Feedback
+    helpful: Optional[bool] = None  # True=helpful, False=not helpful, None=no feedback
+    feedback_text: Optional[str] = Field(default=None, max_length=500)  # Optional comment
+
+    # Timestamps
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    feedback_at: Optional[datetime] = None
