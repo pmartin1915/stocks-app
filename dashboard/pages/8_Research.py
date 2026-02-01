@@ -112,17 +112,26 @@ def render_research_step() -> None:
     selected_ticker = manual_ticker if manual_ticker else ticker
 
     if selected_ticker:
+        # Validate ticker format
+        if not selected_ticker.isalnum() or len(selected_ticker) > 5:
+            st.error("Invalid ticker format. Ticker must be 1-5 alphanumeric characters (e.g., AAPL, MSFT).")
+            return
+
         st.session_state.research_ticker = selected_ticker
 
         # Fetch scores button
         if st.button("Analyze Stock", type="primary"):
             with st.spinner(f"Fetching data for {selected_ticker}..."):
-                # Try cached first
-                cached = get_cached_scores(selected_ticker)
-                if cached and "piotroski" in cached:
-                    st.session_state.research_scores = cached
-                else:
-                    st.session_state.research_scores = get_scores_for_ticker(selected_ticker)
+                try:
+                    # Try cached first
+                    cached = get_cached_scores(selected_ticker)
+                    if cached and "piotroski" in cached:
+                        st.session_state.research_scores = cached
+                    else:
+                        st.session_state.research_scores = get_scores_for_ticker(selected_ticker)
+                except Exception as e:
+                    st.error(f"Failed to fetch data for {selected_ticker}: {str(e)}")
+                    st.session_state.research_scores = {"error": True, "message": str(e)}
 
         # Display scores if available
         if st.session_state.research_scores:
@@ -168,8 +177,18 @@ def render_research_step() -> None:
                                 st.session_state.research_ai_analysis = run_single_stock_analysis(
                                     selected_ticker, scores, model="flash"
                                 )
+                            except ImportError:
+                                st.error("❌ AI analysis not available. Please check your Gemini API key configuration.")
                             except Exception as e:
-                                st.error(f"Analysis failed: {e}")
+                                error_msg = str(e)
+                                if "API key" in error_msg or "GEMINI_API_KEY" in error_msg:
+                                    st.error("❌ Gemini API key not configured. Set GEMINI_API_KEY environment variable.")
+                                elif "rate limit" in error_msg.lower():
+                                    st.error("❌ Rate limit exceeded. Please wait a moment and try again.")
+                                elif "timeout" in error_msg.lower():
+                                    st.error("❌ Request timed out. Please check your internet connection and try again.")
+                                else:
+                                    st.error(f"❌ Analysis failed: {error_msg}")
 
                 with ai_col2:
                     if st.button("Deep Analysis (Pro)", use_container_width=True):
@@ -179,8 +198,18 @@ def render_research_step() -> None:
                                 st.session_state.research_ai_analysis = run_single_stock_analysis(
                                     selected_ticker, scores, model="pro"
                                 )
+                            except ImportError:
+                                st.error("❌ AI analysis not available. Please check your Gemini API key configuration.")
                             except Exception as e:
-                                st.error(f"Analysis failed: {e}")
+                                error_msg = str(e)
+                                if "API key" in error_msg or "GEMINI_API_KEY" in error_msg:
+                                    st.error("❌ Gemini API key not configured. Set GEMINI_API_KEY environment variable.")
+                                elif "rate limit" in error_msg.lower():
+                                    st.error("❌ Rate limit exceeded. Please wait a moment and try again.")
+                                elif "timeout" in error_msg.lower():
+                                    st.error("❌ Request timed out. Please check your internet connection and try again.")
+                                else:
+                                    st.error(f"❌ Analysis failed: {error_msg}")
 
                 # Display AI analysis if available
                 if st.session_state.research_ai_analysis:
@@ -312,9 +341,16 @@ def render_thesis_step() -> None:
             st.success("Draft saved!")
 
     with nav_col3:
-        if st.button("Next: Decision →", type="primary", use_container_width=True, disabled=not summary):
+        # Validation: Require summary with minimum length
+        can_proceed = summary and len(summary.strip()) >= 20
+        button_disabled = not can_proceed
+
+        if st.button("Next: Decision →", type="primary", use_container_width=True, disabled=button_disabled):
             st.session_state.research_step = 2
             st.rerun()
+
+        if not can_proceed and summary:
+            st.caption("⚠️ Summary must be at least 20 characters")
 
 
 def render_decision_step() -> None:
@@ -458,23 +494,389 @@ def render_decision_step() -> None:
                 st.error(f"Failed to save: {e}")
 
 
-# Main wizard flow
-render_step_indicator(st.session_state.research_step)
-st.divider()
+def render_review_outcomes_tab() -> None:
+    """Render the Review Outcomes tab for tracking decision outcomes."""
+    st.subheader("Review Outcomes")
+    st.caption("Record what actually happened vs. your predictions")
 
-if st.session_state.research_step == 0:
-    render_research_step()
-elif st.session_state.research_step == 1:
-    render_thesis_step()
-elif st.session_state.research_step == 2:
-    render_decision_step()
+    from dashboard.utils.decisions import (
+        get_decisions,
+        update_decision_outcome,
+        get_decision_by_id,
+        get_decisions_with_outcomes,
+    )
 
-# Reset button (always visible)
-st.divider()
-if st.button("Reset Wizard", type="secondary"):
-    st.session_state.research_step = 0
-    st.session_state.research_ticker = None
-    st.session_state.research_scores = None
-    st.session_state.research_ai_analysis = None
-    st.session_state.research_thesis_draft = {}
-    st.rerun()
+    # Fetch decisions
+    all_decisions = get_decisions(limit=100)
+    pending_decisions = [d for d in all_decisions if not d.get("actual_outcome")]
+    completed_decisions = get_decisions_with_outcomes(limit=50)
+
+    # Section toggle
+    view_mode = st.radio(
+        "View",
+        options=["Pending Review", "Completed Reviews"],
+        horizontal=True,
+    )
+
+    if view_mode == "Pending Review":
+        if not pending_decisions:
+            st.info("✅ No decisions pending outcome review. All your decisions have been reviewed!")
+            return
+
+        st.markdown(f"**{len(pending_decisions)} decision(s) awaiting outcome review**")
+
+        # Display pending decisions in expandable cards
+        for decision in pending_decisions:
+        ticker = decision.get("ticker", "N/A")
+        action = decision.get("action", "N/A").upper()
+        confidence = decision.get("confidence", 3)
+        decided_at = decision.get("decided_at", "N/A")
+
+        # Parse date for display
+        if decided_at != "N/A":
+            from datetime import datetime
+            try:
+                dt = datetime.fromisoformat(decided_at)
+                date_str = dt.strftime("%b %d, %Y")
+            except:
+                date_str = decided_at
+        else:
+            date_str = "Unknown date"
+
+        with st.expander(f"📊 {ticker} - {action} ({date_str}) - Conviction: {confidence}/5"):
+            # Fetch full decision details including thesis
+            full_decision = get_decision_by_id(decision["id"])
+
+            # Before/After Comparison Section
+            st.markdown("### Original Thesis vs. Outcome")
+
+            comp_col1, comp_col2 = st.columns(2)
+
+            with comp_col1:
+                st.markdown("#### 📋 Original Thesis")
+                st.markdown(f"**Summary**: {full_decision.get('thesis_summary', 'N/A')[:200]}...")
+                st.markdown(f"**Action**: {action}")
+                st.markdown(f"**Conviction**: {confidence}/5")
+                if decision.get('target_price'):
+                    st.markdown(f"**Target Price**: ${decision['target_price']:.2f}")
+                st.markdown(f"**Date**: {date_str}")
+                st.markdown(f"**Rationale**: {decision.get('rationale', 'N/A')[:150]}...")
+
+            with comp_col2:
+                st.markdown("#### 📊 Record Actual Outcome")
+                st.caption("Fill in what actually happened")
+
+                outcome = st.selectbox(
+                    "Actual Outcome",
+                    options=["success", "partial", "failure", "unknown"],
+                    format_func=lambda x: x.capitalize(),
+                    key=f"outcome_{decision['id']}",
+                )
+
+                actual_price = st.number_input(
+                    "Actual Price ($)",
+                    min_value=0.0,
+                    value=0.0,
+                    step=0.01,
+                    help="Current stock price or exit price",
+                    key=f"price_{decision['id']}",
+                )
+
+                # Calculate return if both prices exist
+                if actual_price > 0 and decision.get('target_price', 0) > 0:
+                    pct_return = ((actual_price - decision['target_price']) / decision['target_price']) * 100
+                    color = COLORS['green'] if pct_return > 0 else COLORS['red']
+                    st.markdown(
+                        f"<div style='color:{color};font-weight:600'>Return vs. Target: {pct_return:+.2f}%</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                hit = st.checkbox(
+                    "✓ Thesis proved correct",
+                    help="Check if your original thesis was validated",
+                    key=f"hit_{decision['id']}",
+                )
+
+            st.divider()
+
+            # Lessons learned (full width)
+            lessons = st.text_area(
+                "📝 Lessons Learned",
+                placeholder="What did you learn from this decision? What would you do differently next time?",
+                height=100,
+                key=f"lessons_{decision['id']}",
+            )
+
+            # Save button
+            if st.button("💾 Save Outcome", key=f"save_{decision['id']}", type="primary", use_container_width=True):
+                success = update_decision_outcome(
+                    decision_id=decision["id"],
+                    actual_outcome=outcome,
+                    actual_price=actual_price if actual_price > 0 else None,
+                    lessons_learned=lessons if lessons else None,
+                    hit=hit,
+                )
+                if success:
+                    st.success(f"✅ Outcome recorded for {ticker}!")
+                    st.balloons()
+                    st.rerun()
+                else:
+                    st.error("Failed to save outcome. Please try again.")
+
+    else:  # view_mode == "Completed Reviews"
+        if not completed_decisions:
+            st.info("No completed reviews yet. Record outcomes in 'Pending Review' to see them here.")
+            return
+
+        st.markdown(f"**{len(completed_decisions)} decision(s) with recorded outcomes**")
+
+        # Display completed decisions with before/after comparison
+        for decision in completed_decisions:
+            ticker = decision.get("ticker", "N/A")
+            action = decision.get("action", "N/A").upper()
+            confidence = decision.get("confidence", 3)
+            actual_outcome = decision.get("actual_outcome", "unknown").capitalize()
+            hit = decision.get("hit")
+
+            # Date formatting
+            decided_at = decision.get("decided_at", "N/A")
+            outcome_date = decision.get("outcome_date", "N/A")
+
+            if decided_at != "N/A":
+                from datetime import datetime
+                try:
+                    dt = datetime.fromisoformat(decided_at)
+                    decided_str = dt.strftime("%b %d, %Y")
+                except:
+                    decided_str = decided_at
+            else:
+                decided_str = "Unknown"
+
+            if outcome_date != "N/A":
+                from datetime import datetime
+                try:
+                    dt = datetime.fromisoformat(outcome_date)
+                    outcome_str = dt.strftime("%b %d, %Y")
+                except:
+                    outcome_str = outcome_date
+            else:
+                outcome_str = "Unknown"
+
+            # Color code based on hit
+            if hit is True:
+                badge_color = COLORS['green']
+                badge_text = "✓ Hit"
+            elif hit is False:
+                badge_color = COLORS['red']
+                badge_text = "✗ Miss"
+            else:
+                badge_color = COLORS['gray']
+                badge_text = "? Unknown"
+
+            with st.expander(f"📊 {ticker} - {action} - {actual_outcome} ({outcome_str})"):
+                # Before/After Comparison
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("#### 📋 Original Thesis")
+                    st.markdown(f"**Action**: {action}")
+                    st.markdown(f"**Conviction**: {confidence}/5")
+                    if decision.get('target_price'):
+                        st.markdown(f"**Target Price**: ${decision['target_price']:.2f}")
+                    st.markdown(f"**Date Decided**: {decided_str}")
+                    st.markdown(f"**Rationale**: {decision.get('rationale', 'N/A')[:150]}...")
+                    if decision.get('thesis_summary'):
+                        st.markdown(f"**Thesis**: {decision['thesis_summary'][:150]}...")
+
+                with col2:
+                    st.markdown("#### 📊 Actual Outcome")
+                    st.markdown(
+                        f"<div style='background:{badge_color};color:#fff;padding:4px 12px;"
+                        f"border-radius:4px;display:inline-block;font-weight:600'>{badge_text}</div>",
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(f"**Outcome**: {actual_outcome}")
+                    if decision.get('actual_price'):
+                        st.markdown(f"**Actual Price**: ${decision['actual_price']:.2f}")
+
+                        # Calculate return if both prices exist
+                        if decision.get('target_price', 0) > 0:
+                            pct_return = ((decision['actual_price'] - decision['target_price']) / decision['target_price']) * 100
+                            return_color = COLORS['green'] if pct_return > 0 else COLORS['red']
+                            st.markdown(
+                                f"<div style='color:{return_color};font-weight:600;font-size:1.2rem'>"
+                                f"Return: {pct_return:+.2f}%</div>",
+                                unsafe_allow_html=True,
+                            )
+
+                    st.markdown(f"**Reviewed On**: {outcome_str}")
+
+                # Lessons learned (full width)
+                if decision.get('lessons_learned'):
+                    st.divider()
+                    st.markdown("#### 📝 Lessons Learned")
+                    st.markdown(decision['lessons_learned'])
+
+
+def render_analytics_tab() -> None:
+    """Render the Analytics tab with hit rate visualization."""
+    st.subheader("Decision Analytics")
+    st.caption("Analyze your prediction accuracy by conviction level")
+
+    from dashboard.utils.decisions import (
+        get_decisions_with_outcomes,
+        analyze_by_conviction,
+        calculate_portfolio_return,
+    )
+
+    # Fetch decisions with outcomes
+    decisions_with_outcomes = get_decisions_with_outcomes(limit=100)
+
+    if not decisions_with_outcomes:
+        st.info("No outcome data yet. Record outcomes in the 'Review Outcomes' tab to see analytics.")
+        return
+
+    # Analyze by conviction
+    conviction_stats = analyze_by_conviction(decisions_with_outcomes)
+
+    st.markdown(f"### Hit Rate by Conviction Level")
+    st.caption(f"Based on {len(decisions_with_outcomes)} decision(s) with recorded outcomes")
+
+    # Create bar chart
+    import plotly.graph_objects as go
+
+    fig = go.Figure(data=[
+        go.Bar(
+            x=[f"Level {s['conviction_level']}" for s in conviction_stats],
+            y=[s['hit_rate_pct'] for s in conviction_stats],
+            text=[f"{s['hit_rate_pct']:.1f}%" for s in conviction_stats],
+            textposition='auto',
+            marker_color=[
+                COLORS['green'] if s['hit_rate_pct'] >= 60 else
+                COLORS['yellow'] if s['hit_rate_pct'] >= 40 else
+                COLORS['red']
+                for s in conviction_stats
+            ],
+        )
+    ])
+
+    fig.update_layout(
+        xaxis_title="Conviction Level",
+        yaxis_title="Hit Rate (%)",
+        yaxis_range=[0, 100],
+        height=350,
+        margin=dict(l=20, r=20, t=30, b=20),
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Show stats table
+    st.markdown("### Detailed Statistics")
+
+    import pandas as pd
+    df = pd.DataFrame(conviction_stats)
+    df.columns = ["Conviction", "Hits", "Total", "Hit Rate (%)"]
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    # What-If Calculator
+    st.markdown("### What-If Analysis")
+    st.caption("See how returns vary by conviction threshold")
+
+    min_conviction = st.slider(
+        "Minimum Conviction Level",
+        min_value=1,
+        max_value=5,
+        value=3,
+        help="Only include decisions with conviction ≥ this level",
+    )
+
+    avg_return = calculate_portfolio_return(decisions_with_outcomes, conviction_min=min_conviction)
+    filtered_count = sum(1 for d in decisions_with_outcomes if (d.get('confidence') or 3) >= min_conviction)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric(
+            "Avg Return",
+            f"{avg_return:+.2f}%",
+            delta=None,
+        )
+    with col2:
+        st.metric(
+            "Decisions Included",
+            filtered_count,
+        )
+
+    if min_conviction > 1:
+        all_return = calculate_portfolio_return(decisions_with_outcomes, conviction_min=1)
+        improvement = avg_return - all_return
+        if improvement > 0:
+            st.success(f"✅ High-conviction filter improved returns by {improvement:+.2f}%")
+        elif improvement < 0:
+            st.warning(f"⚠️ High-conviction filter reduced returns by {improvement:.2f}%")
+        else:
+            st.info("No difference in returns")
+
+
+# Tab selection
+tab1, tab2, tab3 = st.tabs(["📝 New Research", "📊 Review Outcomes", "📈 Analytics"])
+
+with tab1:
+    # Main wizard flow
+    render_step_indicator(st.session_state.research_step)
+    st.divider()
+
+    if st.session_state.research_step == 0:
+        render_research_step()
+    elif st.session_state.research_step == 1:
+        render_thesis_step()
+    elif st.session_state.research_step == 2:
+        render_decision_step()
+
+    # Reset button (always visible)
+    st.divider()
+
+    # Only show confirmation if there's data to lose
+    has_data = (
+        st.session_state.research_ticker or
+        st.session_state.research_scores or
+        st.session_state.research_ai_analysis or
+        st.session_state.research_thesis_draft
+    )
+
+    if has_data:
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            if st.button("🔄 Reset Wizard", type="secondary", use_container_width=True):
+                # Initialize reset confirmation state
+                if "confirm_reset" not in st.session_state:
+                    st.session_state.confirm_reset = False
+                st.session_state.confirm_reset = True
+                st.rerun()
+
+        # Show confirmation dialog if reset was clicked
+        if st.session_state.get("confirm_reset", False):
+            st.warning("⚠️ This will clear all unsaved research data. Are you sure?")
+            conf_col1, conf_col2, conf_col3 = st.columns([1, 1, 2])
+            with conf_col1:
+                if st.button("Yes, Reset", type="primary"):
+                    st.session_state.research_step = 0
+                    st.session_state.research_ticker = None
+                    st.session_state.research_scores = None
+                    st.session_state.research_ai_analysis = None
+                    st.session_state.research_thesis_draft = {}
+                    st.session_state.confirm_reset = False
+                    st.rerun()
+            with conf_col2:
+                if st.button("Cancel"):
+                    st.session_state.confirm_reset = False
+                    st.rerun()
+    else:
+        st.caption("Start researching a stock to begin the workflow")
+
+with tab2:
+    render_review_outcomes_tab()
+
+with tab3:
+    render_analytics_tab()
