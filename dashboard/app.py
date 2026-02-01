@@ -16,7 +16,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Initialize theme in session state (must be before any theme-dependent rendering)
 if "theme" not in st.session_state:
     st.session_state.theme = "light"
 
