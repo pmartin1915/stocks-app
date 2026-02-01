@@ -12,6 +12,9 @@ from rich.console import Console
 from asymmetric.cli.formatting import print_next_steps
 from asymmetric.config import config
 
+# PID file location for background process tracking
+PID_FILE = Path(__file__).parent.parent.parent.parent / ".dashboard.pid"
+
 
 def find_available_port(start: int = 8501, end: int = 8520) -> int:
     """Find an available port in the given range."""
@@ -48,8 +51,20 @@ def find_available_port(start: int = 8501, end: int = 8520) -> int:
     is_flag=True,
     help="Suppress status output (only show errors)",
 )
+@click.option(
+    "--background",
+    is_flag=True,
+    help="Start dashboard in background, return immediately with PID",
+)
 @click.pass_context
-def launch(ctx: click.Context, no_browser: bool, with_mcp: bool, port: int, quiet: bool) -> None:
+def launch(
+    ctx: click.Context,
+    no_browser: bool,
+    with_mcp: bool,
+    port: int,
+    quiet: bool,
+    background: bool,
+) -> None:
     """
     Launch the Asymmetric dashboard.
 
@@ -63,6 +78,7 @@ def launch(ctx: click.Context, no_browser: bool, with_mcp: bool, port: int, quie
         asymmetric launch --no-browser # Headless mode (for servers)
         asymmetric launch --port 8080  # Custom port
         asymmetric launch -q           # Quiet mode (suppress output)
+        asymmetric launch --background # Start in background, return PID
     """
     console: Console = ctx.obj["console"]
 
@@ -163,7 +179,61 @@ def launch(ctx: click.Context, no_browser: bool, with_mcp: bool, port: int, quie
 
     url = f"http://localhost:{port}"
 
-    # Open browser
+    # Background mode: start detached process and return immediately
+    if background:
+        log("[cyan]Starting dashboard in background...[/cyan]")
+        try:
+            if sys.platform == "win32":
+                # Windows: use DETACHED_PROCESS to fully detach
+                process = subprocess.Popen(
+                    [
+                        sys.executable,
+                        "-m",
+                        "streamlit",
+                        "run",
+                        str(dashboard_path),
+                        "--server.port",
+                        str(port),
+                        "--server.headless",
+                        "true",
+                    ],
+                    creationflags=subprocess.DETACHED_PROCESS
+                    | subprocess.CREATE_NEW_PROCESS_GROUP,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            else:
+                # Unix: start new session
+                process = subprocess.Popen(
+                    [
+                        sys.executable,
+                        "-m",
+                        "streamlit",
+                        "run",
+                        str(dashboard_path),
+                        "--server.port",
+                        str(port),
+                        "--server.headless",
+                        "true",
+                    ],
+                    start_new_session=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+
+            # Write PID to file for later termination
+            PID_FILE.write_text(str(process.pid))
+
+            log(f"[green]+[/green] Dashboard started (PID: {process.pid})")
+            log(f"  URL: {url}")
+            log("  Stop: asymmetric stop")
+            return
+
+        except Exception as e:
+            console.print(f"[red]x[/red] Failed to start background process: {e}")
+            raise SystemExit(1)
+
+    # Open browser (foreground mode only)
     if not no_browser:
         log(f"[cyan]Opening browser to {url}...[/cyan]")
         webbrowser.open(url)
@@ -179,7 +249,7 @@ def launch(ctx: click.Context, no_browser: bool, with_mcp: bool, port: int, quie
     log("")
 
     try:
-        # Run streamlit
+        # Run streamlit (foreground)
         subprocess.run(
             [
                 sys.executable,

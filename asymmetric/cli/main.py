@@ -57,6 +57,7 @@ from asymmetric.cli.commands import (
     screen,
     sectors,
     status,
+    stop,
     thesis,
     watchlist,
 )
@@ -70,7 +71,7 @@ class OrderedGroup(click.Group):
         ("Screening", ["screen", "trends"]),
         ("Tracking", ["watchlist", "portfolio", "thesis", "decision"]),
         ("Monitoring", ["alerts", "history", "sectors"]),
-        ("Setup", ["db", "mcp", "quickstart", "status", "launch"]),
+        ("Setup", ["db", "mcp", "quickstart", "status", "launch", "stop"]),
     ])
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -137,6 +138,7 @@ cli.add_command(db.db)
 cli.add_command(quickstart.quickstart)
 cli.add_command(status.status)
 cli.add_command(launch.launch)
+cli.add_command(stop.stop)
 
 
 def main() -> None:
