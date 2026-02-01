@@ -14,6 +14,7 @@ import pandas as pd
 from asymmetric.core.trends import TrendAnalyzer
 from asymmetric.db.database import get_session
 from asymmetric.db.models import Stock
+from dashboard.theme import get_semantic_color
 
 st.title("Score Trends")
 st.caption("Track F-Score and Z-Score trajectories over time")
@@ -103,9 +104,11 @@ with tab_history:
                 )
 
                 # Add zone bands to Z-Score axis
-                fig.add_hline(y=2.99, line_dash="dash", line_color="green",
+                green = get_semantic_color('green')
+                red = get_semantic_color('red')
+                fig.add_hline(y=2.99, line_dash="dash", line_color=green,
                              annotation_text="Safe Zone", secondary_y=True)
-                fig.add_hline(y=1.81, line_dash="dash", line_color="red",
+                fig.add_hline(y=1.81, line_dash="dash", line_color=red,
                              annotation_text="Distress Zone", secondary_y=True)
 
                 fig.update_layout(

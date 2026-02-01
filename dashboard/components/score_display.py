@@ -11,7 +11,6 @@ from typing import Any
 import streamlit as st
 
 from dashboard.components import icons
-from dashboard.components.icons import COLORS
 from dashboard.theme import get_color, get_semantic_color
 
 
@@ -46,21 +45,22 @@ def render_fscore_gauge(score: int | None, show_label: bool = True) -> None:
     """
     if score is None:
         if show_label:
+            gray = get_semantic_color("gray")
             st.markdown(
-                f'<span style="color:{COLORS["gray"]}">F-Score: N/A</span>',
+                f'<span style="color:{gray}">F-Score: N/A</span>',
                 unsafe_allow_html=True,
             )
         return
 
     # Determine color and interpretation
     if score >= 7:
-        color = COLORS["green"]
+        color = get_semantic_color("green")
         interp = "Strong"
     elif score >= 4:
-        color = COLORS["yellow"]
+        color = get_semantic_color("yellow")
         interp = "Moderate"
     else:
-        color = COLORS["red"]
+        color = get_semantic_color("red")
         interp = "Weak"
 
     if show_label:
@@ -102,8 +102,9 @@ def render_zscore_gauge(z_score: float | None, zone: str | None) -> None:
         zone: Zone classification.
     """
     if z_score is None or zone is None:
+        gray = get_semantic_color("gray")
         st.markdown(
-            f'<span style="color:{COLORS["gray"]}">Z-Score: N/A</span>',
+            f'<span style="color:{gray}">Z-Score: N/A</span>',
             unsafe_allow_html=True,
         )
         return
@@ -124,11 +125,11 @@ def render_zscore_gauge(z_score: float | None, zone: str | None) -> None:
     # Determine zone color for badge
     zone_lower = zone.lower()
     if zone_lower == "safe":
-        zone_color = COLORS["green"]
+        zone_color = get_semantic_color("green")
     elif zone_lower in ("grey", "gray"):
-        zone_color = COLORS["yellow"]
+        zone_color = get_semantic_color("yellow")
     else:
-        zone_color = COLORS["red"]
+        zone_color = get_semantic_color("red")
 
     # Header with value and zone
     st.markdown(
@@ -204,8 +205,9 @@ def render_conviction_gauge(conviction: int | None, max_level: int = 5) -> None:
         max_level: Maximum conviction level.
     """
     if conviction is None:
+        gray = get_semantic_color("gray")
         st.markdown(
-            f'<span style="color:{COLORS["gray"]}">Conviction: N/A</span>',
+            f'<span style="color:{gray}">Conviction: N/A</span>',
             unsafe_allow_html=True,
         )
         return
@@ -213,14 +215,19 @@ def render_conviction_gauge(conviction: int | None, max_level: int = 5) -> None:
     conviction = max(1, min(conviction, max_level))
 
     # Conviction labels
+    green = get_semantic_color("green")
+    yellow = get_semantic_color("yellow")
+    red = get_semantic_color("red")
+    gray = get_semantic_color("gray")
+
     labels = {
-        1: ("Very Low", COLORS["red"]),
-        2: ("Low", COLORS["yellow"]),
-        3: ("Medium", COLORS["yellow"]),
-        4: ("High", COLORS["green"]),
-        5: ("Very High", COLORS["green"]),
+        1: ("Very Low", red),
+        2: ("Low", yellow),
+        3: ("Medium", yellow),
+        4: ("High", green),
+        5: ("Very High", green),
     }
-    label, color = labels.get(conviction, ("Unknown", COLORS["gray"]))
+    label, color = labels.get(conviction, ("Unknown", gray))
 
     # Stars
     stars = icons.stars_rating(conviction, max_stars=max_level, size=16)

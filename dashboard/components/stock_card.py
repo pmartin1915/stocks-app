@@ -11,8 +11,7 @@ from typing import Optional
 import streamlit as st
 
 from dashboard.components import icons
-from dashboard.components.icons import COLORS
-from dashboard.theme import get_color
+from dashboard.theme import get_color, get_semantic_color
 from dashboard.utils.price_data import (
     get_price_data,
     get_price_history,
@@ -42,10 +41,10 @@ def render_price_badge(ticker: str) -> None:
 
     # Color and arrow based on change direction
     if change >= 0:
-        color = COLORS["green"]
+        color = get_semantic_color("green")
         arrow = "↑"
     else:
-        color = COLORS["red"]
+        color = get_semantic_color("red")
         arrow = "↓"
 
     # Price display with change
@@ -102,7 +101,7 @@ def render_price_with_range(ticker: str) -> None:
             </div>
             <div style="position:relative;height:6px;background:{border_color};border-radius:3px;margin-top:2px">
                 <div style="position:absolute;left:{pct_of_range}%;top:-2px;width:10px;height:10px;
-                            background:{COLORS['blue']};border-radius:50%;transform:translateX(-50%)"></div>
+                            background:{get_semantic_color('blue')};border-radius:50%;transform:translateX(-50%)"></div>
             </div>
         </div>
         """,
@@ -145,7 +144,7 @@ def render_sparkline(ticker: str, width: int = 120, height: int = 32) -> str:
         points.append(f"{x:.1f},{y:.1f}")
 
     # Color based on overall trend
-    color = COLORS["green"] if prices[-1] >= prices[0] else COLORS["red"]
+    color = get_semantic_color("green") if prices[-1] >= prices[0] else get_semantic_color("red")
 
     return f"""
     <svg width="{width}" height="{height}" style="display:inline-block;vertical-align:middle">
@@ -254,15 +253,20 @@ def _decision_status_badge(status: str) -> str:
     """
     text_on_accent = get_color("text_on_accent")
     text_on_yellow = get_color("text_on_yellow")
+    blue = get_semantic_color("blue")
+    green = get_semantic_color("green")
+    gray = get_semantic_color("gray")
+    yellow = get_semantic_color("yellow")
+
     status_styles = {
-        "watching": (COLORS["blue"], text_on_accent, "WATCHING"),
-        "holding": (COLORS["green"], text_on_accent, "HOLDING"),
-        "passed": (COLORS["gray"], text_on_accent, "PASSED"),
-        "sold": (COLORS["yellow"], text_on_yellow, "SOLD"),
+        "watching": (blue, text_on_accent, "WATCHING"),
+        "holding": (green, text_on_accent, "HOLDING"),
+        "passed": (gray, text_on_accent, "PASSED"),
+        "sold": (yellow, text_on_yellow, "SOLD"),
     }
 
     bg, fg, label = status_styles.get(
-        status.lower(), (COLORS["gray"], text_on_accent, status.upper())
+        status.lower(), (gray, text_on_accent, status.upper())
     )
     return icons.badge(label, bg, fg, "small")
 
@@ -358,7 +362,7 @@ def render_stock_card(
 
         # Thesis icon based on AI vs human
         if thesis.get("ai_generated"):
-            source_icon = icons.badge("AI", COLORS["blue"], text_on_accent, "small")
+            source_icon = icons.badge("AI", get_semantic_color("blue"), text_on_accent, "small")
         else:
             source_icon = ""
 
@@ -381,10 +385,11 @@ def render_stock_card(
         if bear_case:
             first_risk = bear_case.split("\n")[0][:80] if bear_case else ""
             if first_risk:
+                yellow_color = get_semantic_color('yellow')
                 st.markdown(
                     f"""
                 <div style="display:flex;align-items:center;gap:4px;font-size:0.85rem">
-                    <span style="color:{COLORS['yellow']}">⚠</span>
+                    <span style="color:{yellow_color}">⚠</span>
                     <span style="color:{text_secondary}">{first_risk}</span>
                 </div>
                 """,
@@ -441,7 +446,7 @@ def render_compact_stock_row(
             if "error" not in data and data.get("price"):
                 price = data["price"]
                 change_pct = data.get("change_pct") or 0
-                color = COLORS["green"] if change_pct >= 0 else COLORS["red"]
+                color = get_semantic_color("green") if change_pct >= 0 else get_semantic_color("red")
                 st.markdown(
                     f'${price:.2f} <span style="color:{color}">{change_pct:+.1f}%</span>',
                     unsafe_allow_html=True,

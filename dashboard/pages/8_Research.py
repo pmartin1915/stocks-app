@@ -15,7 +15,7 @@ from dashboard.components.stock_card import (
     render_key_metrics_row,
 )
 from dashboard.components import icons
-from dashboard.components.icons import COLORS
+from dashboard.theme import get_semantic_color
 from dashboard.utils.scoring import get_scores_for_ticker
 from dashboard.utils.watchlist import get_cached_scores, get_stocks, add_stock
 
@@ -39,7 +39,15 @@ if "research_thesis_draft" not in st.session_state:
 
 def render_step_indicator(current_step: int) -> None:
     """Render the wizard step indicator."""
+    from dashboard.theme import get_color
+
     steps = ["1. Research", "2. Thesis", "3. Decision"]
+
+    green = get_semantic_color('green')
+    blue = get_semantic_color('blue')
+    gray = get_semantic_color('gray')
+    text_on_accent = get_color('text_on_accent')
+    bg_subtle = get_color('bg_subtle')
 
     cols = st.columns(len(steps))
     for i, (col, step) in enumerate(zip(cols, steps)):
@@ -48,8 +56,8 @@ def render_step_indicator(current_step: int) -> None:
                 # Completed step
                 st.markdown(
                     f"""
-                    <div style="text-align:center;padding:8px;background:{COLORS['green']};
-                                color:#fff;border-radius:8px;font-weight:600">
+                    <div style="text-align:center;padding:8px;background:{green};
+                                color:{text_on_accent};border-radius:8px;font-weight:600">
                         ✓ {step}
                     </div>
                     """,
@@ -59,8 +67,8 @@ def render_step_indicator(current_step: int) -> None:
                 # Current step
                 st.markdown(
                     f"""
-                    <div style="text-align:center;padding:8px;background:{COLORS['blue']};
-                                color:#fff;border-radius:8px;font-weight:600">
+                    <div style="text-align:center;padding:8px;background:{blue};
+                                color:{text_on_accent};border-radius:8px;font-weight:600">
                         ● {step}
                     </div>
                     """,
@@ -70,8 +78,8 @@ def render_step_indicator(current_step: int) -> None:
                 # Future step
                 st.markdown(
                     f"""
-                    <div style="text-align:center;padding:8px;background:#e5e7eb;
-                                color:{COLORS['gray']};border-radius:8px">
+                    <div style="text-align:center;padding:8px;background:{bg_subtle};
+                                color:{gray};border-radius:8px">
                         ○ {step}
                     </div>
                     """,
@@ -368,14 +376,21 @@ def render_decision_step() -> None:
         return
 
     # Show thesis summary
+    from dashboard.theme import get_color
+
+    gray = get_semantic_color('gray')
+    green = get_semantic_color('green')
+    red = get_semantic_color('red')
+    bg_card = get_color('bg_card')
+
     st.markdown(f"**Thesis for {ticker}**")
     st.markdown(
         f"""
-        <div style="background:#f8fafc;padding:12px;border-radius:8px;margin-bottom:16px">
-            <div style="color:{COLORS['gray']};font-size:0.9rem">{thesis_draft.get('summary', '')}</div>
+        <div style="background:{bg_card};padding:12px;border-radius:8px;margin-bottom:16px">
+            <div style="color:{gray};font-size:0.9rem">{thesis_draft.get('summary', '')}</div>
             <div style="margin-top:8px">
-                <span style="color:{COLORS['green']}">Bull:</span> {thesis_draft.get('bull_case', 'N/A')[:50]}...
-                <span style="margin-left:16px;color:{COLORS['red']}">Bear:</span> {thesis_draft.get('bear_case', 'N/A')[:50]}...
+                <span style="color:{green}">Bull:</span> {thesis_draft.get('bull_case', 'N/A')[:50]}...
+                <span style="margin-left:16px;color:{red}">Bear:</span> {thesis_draft.get('bear_case', 'N/A')[:50]}...
             </div>
         </div>
         """,
@@ -585,7 +600,7 @@ def render_review_outcomes_tab() -> None:
                     # Calculate return if both prices exist
                     if actual_price > 0 and decision.get('target_price', 0) > 0:
                         pct_return = ((actual_price - decision['target_price']) / decision['target_price']) * 100
-                        color = COLORS['green'] if pct_return > 0 else COLORS['red']
+                        color = get_semantic_color('green') if pct_return > 0 else get_semantic_color('red')
                         st.markdown(
                             f"<div style='color:{color};font-weight:600'>Return vs. Target: {pct_return:+.2f}%</div>",
                             unsafe_allow_html=True,
@@ -664,13 +679,13 @@ def render_review_outcomes_tab() -> None:
 
             # Color code based on hit
             if hit is True:
-                badge_color = COLORS['green']
+                badge_color = get_semantic_color('green')
                 badge_text = "✓ Hit"
             elif hit is False:
-                badge_color = COLORS['red']
+                badge_color = get_semantic_color('red')
                 badge_text = "✗ Miss"
             else:
-                badge_color = COLORS['gray']
+                badge_color = get_semantic_color('gray')
                 badge_text = "? Unknown"
 
             with st.expander(f"📊 {ticker} - {action} - {actual_outcome} ({outcome_str})"):
@@ -702,7 +717,7 @@ def render_review_outcomes_tab() -> None:
                         # Calculate return if both prices exist
                         if decision.get('target_price', 0) > 0:
                             pct_return = ((decision['actual_price'] - decision['target_price']) / decision['target_price']) * 100
-                            return_color = COLORS['green'] if pct_return > 0 else COLORS['red']
+                            return_color = get_semantic_color('green') if pct_return > 0 else get_semantic_color('red')
                             st.markdown(
                                 f"<div style='color:{return_color};font-weight:600;font-size:1.2rem'>"
                                 f"Return: {pct_return:+.2f}%</div>",
@@ -745,6 +760,10 @@ def render_analytics_tab() -> None:
     # Create bar chart
     import plotly.graph_objects as go
 
+    green = get_semantic_color('green')
+    yellow = get_semantic_color('yellow')
+    red = get_semantic_color('red')
+
     fig = go.Figure(data=[
         go.Bar(
             x=[f"Level {s['conviction_level']}" for s in conviction_stats],
@@ -752,9 +771,9 @@ def render_analytics_tab() -> None:
             text=[f"{s['hit_rate_pct']:.1f}%" for s in conviction_stats],
             textposition='auto',
             marker_color=[
-                COLORS['green'] if s['hit_rate_pct'] >= 60 else
-                COLORS['yellow'] if s['hit_rate_pct'] >= 40 else
-                COLORS['red']
+                green if s['hit_rate_pct'] >= 60 else
+                yellow if s['hit_rate_pct'] >= 40 else
+                red
                 for s in conviction_stats
             ],
         )

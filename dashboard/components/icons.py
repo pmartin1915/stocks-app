@@ -54,45 +54,53 @@ def circle(color: str, size: int = DEFAULT_SIZE) -> str:
 
 def circle_green(size: int = DEFAULT_SIZE) -> str:
     """Green circle - safe/success."""
-    return circle(COLORS["green"], size)
+    return circle(get_semantic_color("green"), size)
 
 
 def circle_yellow(size: int = DEFAULT_SIZE) -> str:
     """Yellow circle - warning/grey zone."""
-    return circle(COLORS["yellow"], size)
+    return circle(get_semantic_color("yellow"), size)
 
 
 def circle_red(size: int = DEFAULT_SIZE) -> str:
     """Red circle - danger/distress."""
-    return circle(COLORS["red"], size)
+    return circle(get_semantic_color("red"), size)
 
 
 def circle_gray(size: int = DEFAULT_SIZE) -> str:
     """Gray circle - neutral/no data."""
-    return circle(COLORS["gray"], size)
+    return circle(get_semantic_color("gray"), size)
 
 
 # --- Signal Icons (outline strokes) ---
 
-def check(color: str = COLORS["green"], size: int = DEFAULT_SIZE) -> str:
+def check(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Checkmark - pass/success."""
+    if color is None:
+        color = get_semantic_color("green")
     return _svg('<polyline points="20 6 9 17 4 12"/>', color, size)
 
 
-def x_mark(color: str = COLORS["red"], size: int = DEFAULT_SIZE) -> str:
+def x_mark(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """X mark - fail/error."""
+    if color is None:
+        color = get_semantic_color("red")
     return _svg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>', color, size)
 
 
-def minus(color: str = COLORS["gray"], size: int = DEFAULT_SIZE) -> str:
+def minus(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Minus/dash - no data."""
+    if color is None:
+        color = get_semantic_color("gray")
     return _svg('<line x1="5" y1="12" x2="19" y2="12"/>', color, size)
 
 
 # --- Action Icons ---
 
-def refresh(color: str = COLORS["gray"], size: int = DEFAULT_SIZE) -> str:
+def refresh(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Refresh/reload icon."""
+    if color is None:
+        color = get_semantic_color("gray")
     return _svg(
         '<path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>'
         '<path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>',
@@ -100,8 +108,10 @@ def refresh(color: str = COLORS["gray"], size: int = DEFAULT_SIZE) -> str:
     )
 
 
-def trash(color: str = COLORS["gray"], size: int = DEFAULT_SIZE) -> str:
+def trash(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Trash/delete icon."""
+    if color is None:
+        color = get_semantic_color("gray")
     return _svg(
         '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>'
         '<path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
@@ -109,8 +119,10 @@ def trash(color: str = COLORS["gray"], size: int = DEFAULT_SIZE) -> str:
     )
 
 
-def chart(color: str = COLORS["blue"], size: int = DEFAULT_SIZE) -> str:
+def chart(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Bar chart icon."""
+    if color is None:
+        color = get_semantic_color("blue")
     return _svg(
         '<line x1="18" y1="20" x2="18" y2="10"/>'
         '<line x1="12" y1="20" x2="12" y2="4"/>'
@@ -119,16 +131,20 @@ def chart(color: str = COLORS["blue"], size: int = DEFAULT_SIZE) -> str:
     )
 
 
-def search(color: str = COLORS["gray"], size: int = DEFAULT_SIZE) -> str:
+def search(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Search/magnifying glass icon."""
+    if color is None:
+        color = get_semantic_color("gray")
     return _svg(
         '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
         color, size
     )
 
 
-def clipboard(color: str = COLORS["gray"], size: int = DEFAULT_SIZE) -> str:
+def clipboard(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Clipboard/list icon."""
+    if color is None:
+        color = get_semantic_color("gray")
     return _svg(
         '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>'
         '<rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
@@ -136,8 +152,10 @@ def clipboard(color: str = COLORS["gray"], size: int = DEFAULT_SIZE) -> str:
     )
 
 
-def edit(color: str = COLORS["gray"], size: int = DEFAULT_SIZE) -> str:
+def edit(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Pencil/edit icon."""
+    if color is None:
+        color = get_semantic_color("gray")
     return _svg(
         '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>'
         '<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
@@ -145,8 +163,10 @@ def edit(color: str = COLORS["gray"], size: int = DEFAULT_SIZE) -> str:
     )
 
 
-def archive(color: str = COLORS["gray"], size: int = DEFAULT_SIZE) -> str:
+def archive(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Archive/box icon."""
+    if color is None:
+        color = get_semantic_color("gray")
     return _svg(
         '<path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/>'
         '<path d="M10 12h4"/>',
@@ -156,16 +176,20 @@ def archive(color: str = COLORS["gray"], size: int = DEFAULT_SIZE) -> str:
 
 # --- Star Rating ---
 
-def star_filled(color: str = COLORS["yellow"], size: int = DEFAULT_SIZE) -> str:
+def star_filled(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Filled star."""
+    if color is None:
+        color = get_semantic_color("yellow")
     return _svg(
         '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
         color, size, filled=True
     )
 
 
-def star_empty(color: str = COLORS["yellow"], size: int = DEFAULT_SIZE) -> str:
+def star_empty(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Empty star outline."""
+    if color is None:
+        color = get_semantic_color("yellow")
     return _svg(
         '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
         color, size
@@ -207,12 +231,16 @@ def signal_icon(passed: Optional[bool], size: int = DEFAULT_SIZE) -> str:
 
 def thesis_status_icon(status: str, size: int = DEFAULT_SIZE) -> str:
     """Get thesis status indicator."""
+    yellow = get_semantic_color("yellow")
+    green = get_semantic_color("green")
+    gray = get_semantic_color("gray")
+
     status_map = {
-        "draft": lambda s: edit(COLORS["yellow"], s),
-        "active": lambda s: check(COLORS["green"], s),
-        "archived": lambda s: archive(COLORS["gray"], s),
+        "draft": lambda s: edit(yellow, s),
+        "active": lambda s: check(green, s),
+        "archived": lambda s: archive(gray, s),
     }
-    fn = status_map.get(status.lower(), lambda s: edit(COLORS["gray"], s))
+    fn = status_map.get(status.lower(), lambda s: edit(gray, s))
     return fn(size)
 
 
@@ -393,8 +421,10 @@ def thesis_status_badge(status: str, size: str = "small") -> str:
 
 # --- Winner/Award Icons ---
 
-def trophy(color: str = COLORS["yellow"], size: int = DEFAULT_SIZE) -> str:
+def trophy(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Trophy icon for winner highlighting."""
+    if color is None:
+        color = get_semantic_color("yellow")
     return _svg(
         '<path d="M6 9H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h2"/>'
         '<path d="M18 9h2a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-2"/>'
@@ -404,8 +434,10 @@ def trophy(color: str = COLORS["yellow"], size: int = DEFAULT_SIZE) -> str:
     )
 
 
-def medal(color: str = COLORS["yellow"], size: int = DEFAULT_SIZE) -> str:
+def medal(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
     """Medal icon for awards/achievements."""
+    if color is None:
+        color = get_semantic_color("yellow")
     return _svg(
         '<circle cx="12" cy="13" r="5"/>'
         '<path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.11"/>',
