@@ -507,13 +507,18 @@ Analytics will show:
             st.markdown("**Hit Rate by Conviction Level**")
             st.caption("Does higher conviction correlate with better outcomes?")
 
+            # Get theme-aware colors for heatmap
+            red = get_semantic_color('red')
+            yellow = get_semantic_color('yellow')
+            green = get_semantic_color('green')
+
             # Bar chart
             fig = px.bar(
                 conviction_analysis,
                 x="conviction_level",
                 y="hit_rate_pct",
                 color="hit_rate_pct",
-                color_continuous_scale=["#ef4444", "#eab308", "#22c55e"],
+                color_continuous_scale=[red, yellow, green],
                 range_color=[0, 100],
                 labels={
                     "conviction_level": "Conviction (1=Low, 5=High)",

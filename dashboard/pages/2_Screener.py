@@ -291,13 +291,18 @@ else:
                 heatmap_data = get_sector_heatmap_data(results)
 
                 if not heatmap_data.empty and len(heatmap_data) > 0:
+                    # Get theme-aware colors for treemap
+                    red = get_semantic_color('red')
+                    yellow = get_semantic_color('yellow')
+                    green = get_semantic_color('green')
+
                     # Treemap: size = market cap, color = F-Score
                     fig = px.treemap(
                         heatmap_data,
                         path=[px.Constant("Market"), "sector", "ticker"],
                         values="market_cap",
                         color="piotroski_score",
-                        color_continuous_scale=[[0, "#ef4444"], [0.5, "#eab308"], [1, "#22c55e"]],
+                        color_continuous_scale=[[0, red], [0.5, yellow], [1, green]],
                         range_color=[0, 9],
                         hover_data={
                             "company_name": True,

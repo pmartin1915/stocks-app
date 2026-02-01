@@ -77,6 +77,10 @@ with tab_history:
                 # Create dual-axis chart
                 fig = make_subplots(specs=[[{"secondary_y": True}]])
 
+                # Get theme-aware colors for chart lines
+                blue = get_semantic_color('blue')
+                gray = get_semantic_color('gray')
+
                 # F-Score line (primary y-axis)
                 fig.add_trace(
                     go.Scatter(
@@ -84,7 +88,7 @@ with tab_history:
                         y=df["F-Score"],
                         name="F-Score",
                         mode="lines+markers",
-                        line=dict(color="#2E86AB", width=3),
+                        line=dict(color=blue, width=3),
                         marker=dict(size=10)
                     ),
                     secondary_y=False
@@ -97,7 +101,7 @@ with tab_history:
                         y=df["Z-Score"],
                         name="Z-Score",
                         mode="lines+markers",
-                        line=dict(color="#A23B72", width=3),
+                        line=dict(color=gray, width=3),
                         marker=dict(size=10)
                     ),
                     secondary_y=True
