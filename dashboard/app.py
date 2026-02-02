@@ -63,8 +63,15 @@ try:
         st.metric("F-Score Range", "0-9 pts")
     with col3:
         st.metric("Z-Score Zones", "Safe/Grey/Distress")
-except Exception:
-    pass
+except Exception as e:
+    # Show fallback metrics if watchlist unavailable
+    with col1:
+        st.metric("Watchlist Size", "—")
+    with col2:
+        st.metric("F-Score Range", "0-9 pts")
+    with col3:
+        st.metric("Z-Score Zones", "Safe/Grey/Distress")
+    st.caption(f"Could not load watchlist stats: {e}")
 
 # Debug: Dark mode indicator and color test boxes
 import datetime

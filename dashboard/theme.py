@@ -63,12 +63,17 @@ SEMANTIC_COLORS = {
 
 
 def get_theme_name() -> str:
-    """Get current theme name from session state."""
+    """Get current theme name from session state.
+
+    Returns 'light' if called outside a Streamlit context (e.g., during testing).
+    """
     try:
         import streamlit as st
 
         return st.session_state.get("theme", "light")
-    except Exception:
+    except (ImportError, RuntimeError):
+        # ImportError: streamlit not installed
+        # RuntimeError: called outside Streamlit context
         return "light"
 
 

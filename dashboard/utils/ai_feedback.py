@@ -3,8 +3,11 @@
 Provides functions to record and query user feedback on AI-generated content.
 """
 
+import logging
 from datetime import datetime, timezone
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 try:
     from sqlmodel import Session, select
@@ -73,7 +76,8 @@ def record_ai_feedback(
             session.commit()
             return True
 
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to record AI feedback: %s", e)
         return False
 
 
@@ -149,5 +153,6 @@ def get_recent_feedback(limit: int = 20) -> list[dict]:
                 for r in results
             ]
 
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to retrieve AI feedback: %s", e)
         return []
