@@ -9,6 +9,7 @@ Enhanced with price data from Yahoo Finance.
 import pandas as pd
 import streamlit as st
 
+from dashboard.theme import get_semantic_color, get_plotly_theme
 from dashboard.utils.bulk_data import (
     format_last_refresh,
     get_bulk_stats,
@@ -329,6 +330,7 @@ else:
                     fig.update_layout(
                         height=500,
                         margin=dict(t=50, l=25, r=25, b=25),
+                        **get_plotly_theme()
                     )
                     st.plotly_chart(fig, use_container_width=True)
 

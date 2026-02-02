@@ -101,9 +101,132 @@ def get_semantic_color(key: str) -> str:
     """
     theme_name = get_theme_name()
     colors = SEMANTIC_COLORS.get(theme_name, SEMANTIC_COLORS["light"])
-    return colors.get(key, "#6b7280")
+    color = colors.get(key, "#6b7280")
+    return color
 
 
 def is_dark_mode() -> bool:
     """Check if dark mode is currently active."""
     return get_theme_name() == "dark"
+
+
+def get_plotly_theme() -> dict:
+    """Get Plotly layout settings for current theme.
+
+    Returns a dict suitable for fig.update_layout(**get_plotly_theme()).
+    Sets paper background, plot background, and font colors.
+    """
+    theme = get_theme()
+    return {
+        "paper_bgcolor": theme["bg_primary"],
+        "plot_bgcolor": theme["bg_secondary"],
+        "font": {"color": theme["text_primary"]},
+    }
+
+
+def apply_theme_css() -> None:
+    """Inject CSS to style Streamlit's native elements based on current theme.
+
+    This applies background colors, text colors, and other styles to Streamlit's
+    root elements that can't be styled through normal means.
+    """
+    import streamlit as st
+
+    theme = get_theme()
+    bg_primary = theme["bg_primary"]
+    bg_secondary = theme["bg_secondary"]
+    text_primary = theme["text_primary"]
+    text_secondary = theme["text_secondary"]
+    border = theme["border"]
+
+    css = f"""
+    <style>
+        /* Main app background */
+        .stApp {{
+            background-color: {bg_primary};
+        }}
+
+        /* Sidebar background */
+        [data-testid="stSidebar"] {{
+            background-color: {bg_secondary};
+        }}
+
+        /* Main content text */
+        .stApp, .stApp p, .stApp span, .stApp li {{
+            color: {text_primary};
+        }}
+
+        /* Headers */
+        .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {{
+            color: {text_primary};
+        }}
+
+        /* Captions and secondary text */
+        .stApp .stCaption, [data-testid="stCaption"] {{
+            color: {text_secondary};
+        }}
+
+        /* Metric labels */
+        [data-testid="stMetricLabel"] {{
+            color: {text_secondary};
+        }}
+
+        /* Metric values */
+        [data-testid="stMetricValue"] {{
+            color: {text_primary};
+        }}
+
+        /* Sidebar text */
+        [data-testid="stSidebar"] p, [data-testid="stSidebar"] span,
+        [data-testid="stSidebar"] li, [data-testid="stSidebar"] label {{
+            color: {text_primary};
+        }}
+
+        /* Dividers */
+        hr {{
+            border-color: {border};
+        }}
+
+        /* Input fields */
+        .stTextInput input, .stSelectbox select, .stTextArea textarea {{
+            background-color: {bg_secondary};
+            color: {text_primary};
+            border-color: {border};
+        }}
+
+        /* Buttons - keep default styling for primary buttons */
+
+        /* Expanders */
+        .streamlit-expanderHeader {{
+            background-color: {bg_secondary};
+            color: {text_primary};
+        }}
+
+        /* Tabs */
+        .stTabs [data-baseweb="tab-list"] {{
+            background-color: {bg_secondary};
+        }}
+
+        .stTabs [data-baseweb="tab"] {{
+            color: {text_primary};
+        }}
+
+        /* Markdown content */
+        .stMarkdown {{
+            color: {text_primary};
+        }}
+
+        /* Code blocks */
+        .stCode, pre, code {{
+            background-color: {bg_secondary};
+            color: {text_primary};
+        }}
+
+        /* Info/warning/error boxes */
+        [data-testid="stAlert"] {{
+            background-color: {bg_secondary};
+        }}
+    </style>
+    """
+
+    st.markdown(css, unsafe_allow_html=True)

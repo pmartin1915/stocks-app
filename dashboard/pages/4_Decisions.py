@@ -16,6 +16,7 @@ from dashboard.components.decisions import (
     render_thesis_form,
 )
 from dashboard.config import DECISION_ACTIONS, DECISIONS_PAGE_LIMIT, THESIS_STATUS, THESES_PAGE_LIMIT
+from dashboard.theme import get_semantic_color, get_plotly_theme
 from dashboard.utils.sidebar import render_full_sidebar
 from dashboard.utils.decisions import (
     analyze_by_conviction,
@@ -531,7 +532,7 @@ Analytics will show:
                 text="hit_rate_pct",
             )
             fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-            fig.update_layout(showlegend=False, height=400)
+            fig.update_layout(showlegend=False, height=400, **get_plotly_theme())
             st.plotly_chart(fig, use_container_width=True)
 
             # Table with details

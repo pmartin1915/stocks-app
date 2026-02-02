@@ -15,7 +15,7 @@ from dashboard.components.stock_card import (
     render_key_metrics_row,
 )
 from dashboard.components import icons
-from dashboard.theme import get_semantic_color
+from dashboard.theme import get_semantic_color, get_plotly_theme
 from dashboard.utils.sidebar import render_full_sidebar
 from dashboard.utils.scoring import get_scores_for_ticker
 from dashboard.utils.watchlist import get_cached_scores, get_stocks, add_stock
@@ -51,7 +51,7 @@ def render_step_indicator(current_step: int) -> None:
     blue = get_semantic_color('blue')
     gray = get_semantic_color('gray')
     text_on_accent = get_color('text_on_accent')
-    bg_subtle = get_color('bg_subtle')
+    bg_subtle = get_color('bg_tertiary')
 
     cols = st.columns(len(steps))
     for i, (col, step) in enumerate(zip(cols, steps)):
@@ -385,7 +385,7 @@ def render_decision_step() -> None:
     gray = get_semantic_color('gray')
     green = get_semantic_color('green')
     red = get_semantic_color('red')
-    bg_card = get_color('bg_card')
+    bg_card = get_color('bg_secondary')
 
     st.markdown(f"**Thesis for {ticker}**")
     st.markdown(
@@ -791,6 +791,7 @@ def render_analytics_tab() -> None:
         yaxis_range=[0, 100],
         height=350,
         margin=dict(l=20, r=20, t=30, b=20),
+        **get_plotly_theme()
     )
 
     st.plotly_chart(fig, use_container_width=True)

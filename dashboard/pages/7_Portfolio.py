@@ -13,6 +13,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from asymmetric.core.portfolio import PortfolioManager
+from dashboard.theme import get_plotly_theme
 from dashboard.utils.sidebar import render_full_sidebar
 
 # Render sidebar (theme toggle, branding, navigation)
@@ -121,6 +122,7 @@ with tab_holdings:
             title="Portfolio Allocation by Cost Basis"
         )
         fig.update_traces(textposition='inside', textinfo='percent+label')
+        fig.update_layout(**get_plotly_theme())
         st.plotly_chart(fig, use_container_width=True)
 
     else:
@@ -286,7 +288,7 @@ with tab_health:
                 color="Zone",
                 color_discrete_map={"Safe": "green", "Grey": "orange", "Distress": "red"}
             )
-            fig.update_layout(showlegend=False, title="Allocation by Z-Score Zone")
+            fig.update_layout(showlegend=False, title="Allocation by Z-Score Zone", **get_plotly_theme())
             st.plotly_chart(fig, use_container_width=True)
 
         # Health assessment

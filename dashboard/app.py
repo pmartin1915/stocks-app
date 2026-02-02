@@ -9,7 +9,7 @@ Or use: python run_dashboard.py
 
 import streamlit as st
 from dashboard.utils.sidebar import render_full_sidebar
-from dashboard.theme import get_semantic_color, get_color, is_dark_mode
+from dashboard.theme import get_semantic_color, is_dark_mode
 
 st.set_page_config(
     page_title="Asymmetric",
@@ -20,34 +20,6 @@ st.set_page_config(
 
 # Render shared sidebar (theme toggle, branding, navigation)
 render_full_sidebar()
-
-# DIAGNOSTIC: Test if colors are actually changing
-st.info(f"🧪 Dark Mode: {'ON' if is_dark_mode() else 'OFF'}")
-
-# Test color swatches
-green = get_semantic_color("green")
-red = get_semantic_color("red")
-blue = get_semantic_color("blue")
-bg = get_color("bg_primary")
-text = get_color("text_primary")
-
-st.markdown(f"""
-### Color Test (Should Change with Theme Toggle)
-<div style="display:flex; gap:20px; padding:20px; background:{bg};">
-    <div style="background:{green}; padding:20px; border-radius:8px; color:white; font-weight:bold;">
-        GREEN<br/>{green}
-    </div>
-    <div style="background:{red}; padding:20px; border-radius:8px; color:white; font-weight:bold;">
-        RED<br/>{red}
-    </div>
-    <div style="background:{blue}; padding:20px; border-radius:8px; color:white; font-weight:bold;">
-        BLUE<br/>{blue}
-    </div>
-    <div style="background:{bg}; border:2px solid {text}; padding:20px; border-radius:8px; color:{text}; font-weight:bold;">
-        TEXT<br/>{text}
-    </div>
-</div>
-""", unsafe_allow_html=True)
 
 # Main page content
 st.title("Welcome to Asymmetric")
@@ -93,3 +65,34 @@ try:
         st.metric("Z-Score Zones", "Safe/Grey/Distress")
 except Exception:
     pass
+
+# Debug: Dark mode indicator and color test boxes
+import datetime
+st.divider()
+st.subheader("Dark Mode: " + ("ON" if is_dark_mode() else "OFF"))
+st.caption(f"Rendered at: {datetime.datetime.now().strftime('%H:%M:%S.%f')}")
+
+# Color test boxes
+green = get_semantic_color('green')
+red = get_semantic_color('red')
+blue = get_semantic_color('blue')
+
+test_col1, test_col2, test_col3 = st.columns(3)
+with test_col1:
+    st.markdown(f'''
+    <div style="background:{green}; padding:20px; color:white; border-radius:8px;">
+        <strong>GREEN</strong><br>{green}
+    </div>
+    ''', unsafe_allow_html=True)
+with test_col2:
+    st.markdown(f'''
+    <div style="background:{red}; padding:20px; color:white; border-radius:8px;">
+        <strong>RED</strong><br>{red}
+    </div>
+    ''', unsafe_allow_html=True)
+with test_col3:
+    st.markdown(f'''
+    <div style="background:{blue}; padding:20px; color:white; border-radius:8px;">
+        <strong>BLUE</strong><br>{blue}
+    </div>
+    ''', unsafe_allow_html=True)

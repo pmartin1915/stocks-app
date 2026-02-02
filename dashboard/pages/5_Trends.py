@@ -14,7 +14,7 @@ import pandas as pd
 from asymmetric.core.trends import TrendAnalyzer
 from asymmetric.db.database import get_session
 from asymmetric.db.models import Stock
-from dashboard.theme import get_semantic_color
+from dashboard.theme import get_semantic_color, get_plotly_theme
 from dashboard.utils.sidebar import render_full_sidebar
 
 # Render sidebar (theme toggle, branding, navigation)
@@ -122,7 +122,8 @@ with tab_history:
                 fig.update_layout(
                     title=f"{ticker} Score History",
                     hovermode="x unified",
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02)
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                    **get_plotly_theme()
                 )
                 fig.update_yaxes(title_text="F-Score (0-9)", secondary_y=False, range=[0, 9])
                 fig.update_yaxes(title_text="Z-Score", secondary_y=True)
@@ -157,7 +158,7 @@ with tab_history:
                     comp_fig.add_trace(go.Bar(name="Profitability (0-4)", x=df["Year"], y=df["Profitability"]))
                     comp_fig.add_trace(go.Bar(name="Leverage (0-3)", x=df["Year"], y=df["Leverage"]))
                     comp_fig.add_trace(go.Bar(name="Efficiency (0-2)", x=df["Year"], y=df["Efficiency"]))
-                    comp_fig.update_layout(barmode="stack", title="F-Score Components by Year")
+                    comp_fig.update_layout(barmode="stack", title="F-Score Components by Year", **get_plotly_theme())
                     st.plotly_chart(comp_fig, use_container_width=True)
 
             # Raw data table

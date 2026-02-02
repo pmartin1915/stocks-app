@@ -5,7 +5,7 @@ appear consistently across all pages in the multi-page app.
 """
 
 import streamlit as st
-from dashboard.theme import get_semantic_color
+from dashboard.theme import apply_theme_css
 
 
 def render_theme_toggle():
@@ -33,15 +33,9 @@ def render_theme_toggle():
         )
         new_theme = "dark" if is_dark else "light"
 
-        # DEBUG: Log toggle state changes
-        if "debug_toggle_clicks" not in st.session_state:
-            st.session_state.debug_toggle_clicks = 0
-
         # Only rerun if theme actually changed (prevents infinite loop)
         if st.session_state.theme != new_theme:
-            st.session_state.debug_toggle_clicks += 1
             st.session_state.theme = new_theme
-            st.write(f"🔄 Rerunning... (click #{st.session_state.debug_toggle_clicks})")
             st.rerun()
 
 
@@ -66,43 +60,6 @@ def render_navigation():
 """)
 
 
-def render_debug_info():
-    """Render debug info to verify theme propagation.
-
-    TEMPORARY: Remove this once dark mode is confirmed working.
-    """
-    st.sidebar.divider()
-    st.sidebar.caption("🔍 Debug Info")
-
-    # Show current theme state
-    current_theme = st.session_state.get('theme', 'unknown')
-    st.sidebar.text(f"Theme: {current_theme}")
-
-    # Show color values
-    green = get_semantic_color('green')
-    blue = get_semantic_color('blue')
-    red = get_semantic_color('red')
-
-    st.sidebar.text(f"Green: {green}")
-    st.sidebar.text(f"Blue: {blue}")
-    st.sidebar.text(f"Red: {red}")
-
-    # Expected values for verification
-    if current_theme == "light":
-        st.sidebar.caption("Expected: #22c55e, #3b82f6, #ef4444")
-    else:
-        st.sidebar.caption("Expected: #10b981, #60a5fa, #f87171")
-
-    # Visual color swatches
-    st.sidebar.markdown(f"""
-<div style="display:flex; gap:10px; margin-top:10px;">
-    <div style="background:{green}; width:30px; height:30px; border-radius:4px;"></div>
-    <div style="background:{blue}; width:30px; height:30px; border-radius:4px;"></div>
-    <div style="background:{red}; width:30px; height:30px; border-radius:4px;"></div>
-</div>
-""", unsafe_allow_html=True)
-
-
 def render_full_sidebar():
     """Render complete sidebar with all components.
 
@@ -111,4 +68,4 @@ def render_full_sidebar():
     render_branding()
     render_theme_toggle()
     render_navigation()
-    render_debug_info()  # TODO: Remove after dark mode verification
+    apply_theme_css()  # Apply theme colors to Streamlit native elements
