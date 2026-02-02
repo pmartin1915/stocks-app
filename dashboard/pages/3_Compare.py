@@ -6,8 +6,6 @@ and optional AI-powered analysis via Gemini.
 Enhanced with price data and improved AI content display.
 """
 
-import re
-
 import streamlit as st
 
 from dashboard.components.ai_content import render_ai_section
@@ -25,6 +23,7 @@ from dashboard.utils.ai_analysis import (
 )
 from dashboard.utils.scoring import get_scores_for_ticker
 from dashboard.utils.sidebar import render_full_sidebar
+from dashboard.utils.validators import validate_ticker
 from dashboard.utils.watchlist import get_cached_scores, get_stocks, add_stock
 
 st.set_page_config(page_title="Compare | Asymmetric", layout="wide")
@@ -42,18 +41,6 @@ if "compare_results" not in st.session_state:
     st.session_state.compare_results = {}
 if "compare_ai_result" not in st.session_state:
     st.session_state.compare_ai_result = None
-
-
-def _validate_ticker(ticker: str) -> tuple[bool, str]:
-    """Validate ticker symbol format."""
-    if not ticker:
-        return True, ""  # Empty is OK (optional)
-
-    # Ticker format: 1-5 uppercase letters, optionally followed by hyphen and letter
-    if not re.match(r"^[A-Z]{1,5}(?:-[A-Z])?$", ticker):
-        return False, f"Invalid ticker format: {ticker}"
-
-    return True, ""
 
 
 def _fetch_scores(tickers: list[str]) -> dict[str, dict]:
@@ -133,7 +120,7 @@ else:
 # Validate manual tickers
 validation_errors = []
 for ticker in manual_tickers:
-    is_valid, error = _validate_ticker(ticker)
+    is_valid, error = validate_ticker(ticker, allow_empty=True)
     if not is_valid:
         validation_errors.append(error)
 

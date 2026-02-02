@@ -1,86 +1,68 @@
 """Test decision display utility functions.
 
-Tests for dashboard/components/decisions.py - date formatting and confidence indicator.
+Tests for dashboard/components/decisions.py - confidence indicator.
+Tests for dashboard/utils/formatters.py - date formatting.
 """
 
 import pytest
 
-from dashboard.components.decisions import (
-    _format_date,
-    _format_short_date,
-    render_confidence_indicator,
-)
+from dashboard.components.decisions import render_confidence_indicator
+from dashboard.utils.formatters import format_date
 
 
 class TestFormatDate:
-    """Tests for _format_date()."""
+    """Tests for format_date()."""
 
     def test_valid_iso_date(self):
-        """Valid ISO date should format as 'YYYY-MM-DD HH:MM'."""
-        assert _format_date("2025-01-15T10:30:00") == "2025-01-15 10:30"
+        """Valid ISO date should format as 'YYYY-MM-DD'."""
+        assert format_date("2025-01-15T10:30:00") == "2025-01-15"
+
+    def test_valid_iso_date_with_time(self):
+        """Valid ISO date with include_time should format as 'YYYY-MM-DD HH:MM'."""
+        assert format_date("2025-01-15T10:30:00", include_time=True) == "2025-01-15 10:30"
 
     def test_iso_with_timezone(self):
         """ISO date with timezone should still parse."""
-        result = _format_date("2025-01-15T10:30:00+00:00")
+        result = format_date("2025-01-15T10:30:00+00:00", include_time=True)
         assert "2025-01-15" in result
         assert "10:30" in result
 
     def test_none_returns_na(self):
         """None input should return 'N/A'."""
-        assert _format_date(None) == "N/A"
+        assert format_date(None) == "N/A"
 
     def test_empty_string_returns_na(self):
         """Empty string should return 'N/A'."""
-        assert _format_date("") == "N/A"
+        assert format_date("") == "N/A"
 
     def test_invalid_format_returns_na(self):
         """Invalid date format should return 'N/A'."""
-        assert _format_date("not-a-date") == "N/A"
-        assert _format_date("01/15/2025") == "N/A"
+        assert format_date("not-a-date") == "N/A"
+        assert format_date("01/15/2025") == "N/A"
 
     def test_date_only_format(self):
         """Date-only ISO format should work."""
-        result = _format_date("2025-01-15")
+        result = format_date("2025-01-15")
         assert "2025-01-15" in result
 
-    def test_midnight(self):
+    def test_midnight_with_time(self):
         """Midnight should display as 00:00."""
-        assert _format_date("2025-01-15T00:00:00") == "2025-01-15 00:00"
+        assert format_date("2025-01-15T00:00:00", include_time=True) == "2025-01-15 00:00"
 
-    def test_end_of_day(self):
+    def test_end_of_day_with_time(self):
         """End of day should display as 23:59."""
-        assert _format_date("2025-01-15T23:59:00") == "2025-01-15 23:59"
+        assert format_date("2025-01-15T23:59:00", include_time=True) == "2025-01-15 23:59"
 
-
-class TestFormatShortDate:
-    """Tests for _format_short_date()."""
-
-    def test_valid_iso_date(self):
-        """Valid ISO date should format as 'YYYY-MM-DD'."""
-        assert _format_short_date("2025-01-15T10:30:00") == "2025-01-15"
-
-    def test_none_returns_na(self):
-        """None input should return 'N/A'."""
-        assert _format_short_date(None) == "N/A"
-
-    def test_empty_string_returns_na(self):
-        """Empty string should return 'N/A'."""
-        assert _format_short_date("") == "N/A"
-
-    def test_invalid_format_returns_na(self):
-        """Invalid date format should return 'N/A'."""
-        assert _format_short_date("not-a-date") == "N/A"
-
-    def test_date_only_input(self):
-        """Date-only input should work."""
-        result = _format_short_date("2025-01-15")
-        assert "2025-01-15" in result
-
-    def test_strips_time(self):
-        """Time component should be stripped."""
-        result = _format_short_date("2025-01-15T23:59:59")
+    def test_short_date_strips_time(self):
+        """Without include_time, time component should be stripped."""
+        result = format_date("2025-01-15T23:59:59")
         assert "23:59" not in result
         assert result == "2025-01-15"
+
+    def test_custom_default(self):
+        """Custom default value should be returned for invalid input."""
+        assert format_date(None, default="Unknown") == "Unknown"
+        assert format_date("", default="-") == "-"
 
 
 class TestRenderConfidenceIndicator:

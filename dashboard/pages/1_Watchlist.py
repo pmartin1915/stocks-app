@@ -6,7 +6,6 @@ price data from Yahoo Finance, and thesis/decision status.
 Supports adding/removing stocks and refreshing scores from SEC EDGAR.
 """
 
-import re
 from datetime import UTC, datetime
 
 import streamlit as st
@@ -21,8 +20,10 @@ from dashboard.components.stock_card import (
     render_stock_card_header,
 )
 from dashboard.components import icons
+from dashboard.utils.formatters import format_date
 from dashboard.utils.scoring import get_scores_for_ticker, refresh_scores
 from dashboard.utils.sidebar import render_full_sidebar
+from dashboard.utils.validators import validate_ticker
 from dashboard.utils.watchlist import (
     add_stock,
     get_cached_scores,
@@ -43,37 +44,6 @@ st.caption("Track stocks with Piotroski F-Score and Altman Z-Score")
 # Initialize session state for confirmations
 if "confirm_remove" not in st.session_state:
     st.session_state.confirm_remove = None
-
-
-def _format_date(iso_str: str | None) -> str:
-    """Format ISO date string to readable format."""
-    if not iso_str:
-        return "N/A"
-    try:
-        dt = datetime.fromisoformat(iso_str)
-        return dt.strftime("%Y-%m-%d")
-    except (ValueError, TypeError):
-        return "N/A"
-
-
-def _validate_ticker(ticker: str) -> tuple[bool, str]:
-    """Validate ticker symbol format.
-
-    Args:
-        ticker: Stock ticker symbol to validate.
-
-    Returns:
-        Tuple of (is_valid, error_message). Error message is empty if valid.
-    """
-    if not ticker:
-        return False, "Please enter a ticker symbol"
-
-    # Ticker format: 1-5 uppercase letters, optionally followed by hyphen and letter
-    # Examples: AAPL, MSFT, BRK-B, BRK-A (lowercase input is auto-uppercased)
-    if not re.match(r"^[A-Z]{1,5}(?:-[A-Z])?$", ticker):
-        return False, "Invalid ticker format (e.g., AAPL, BRK-B). Lowercase is OK."
-
-    return True, ""
 
 
 def _get_top_stocks_for_compare(stocks: list[str], max_count: int = 3) -> list[str]:
@@ -127,7 +97,7 @@ with st.container():
 
     with col3:
         if st.button("Add", type="primary", use_container_width=True):
-            is_valid, error_msg = _validate_ticker(new_ticker)
+            is_valid, error_msg = validate_ticker(new_ticker)
             if not is_valid:
                 st.error(error_msg)
             elif add_stock(new_ticker, new_note):
@@ -270,14 +240,14 @@ else:
             col1, col2, col3 = st.columns([2, 2, 1])
 
             with col1:
-                st.caption(f"Added: {_format_date(data.get('added') if data else None)}")
+                st.caption(f"Added: {format_date(data.get('added') if data else None)}")
                 if data and data.get("note"):
                     st.markdown(f"*{data.get('note')}*")
 
             with col2:
                 if cached_scores:
                     cached_at = data.get("cached_at") if data else None
-                    st.caption(f"Scores cached: {_format_date(cached_at)}")
+                    st.caption(f"Scores cached: {format_date(cached_at)}")
                 else:
                     st.caption("No cached scores. Click 'Refresh Scores' above.")
 

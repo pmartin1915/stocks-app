@@ -4,13 +4,13 @@ Provides reusable UI rendering functions for decisions and theses,
 following the same patterns as score_display.py and comparison.py.
 """
 
-from datetime import datetime
 from typing import Any, Optional
 
 import streamlit as st
 
 from dashboard.components import icons
 from dashboard.config import CONFIDENCE_LEVELS, DECISION_ACTIONS, THESIS_STATUS
+from dashboard.utils.formatters import format_date
 
 
 def render_action_badge(action: str) -> str:
@@ -56,28 +56,6 @@ def render_confidence_indicator(confidence: Optional[int]) -> str:
     return f"{stars} ({config['label']})"
 
 
-def _format_date(iso_date: Optional[str]) -> str:
-    """Format ISO date string for display."""
-    if not iso_date:
-        return "N/A"
-    try:
-        dt = datetime.fromisoformat(iso_date)
-        return dt.strftime("%Y-%m-%d %H:%M")
-    except ValueError:
-        return "N/A"
-
-
-def _format_short_date(iso_date: Optional[str]) -> str:
-    """Format ISO date string as short date."""
-    if not iso_date:
-        return "N/A"
-    try:
-        dt = datetime.fromisoformat(iso_date)
-        return dt.strftime("%Y-%m-%d")
-    except ValueError:
-        return "N/A"
-
-
 def render_decision_card(
     decision: dict[str, Any],
     expanded: bool = False,
@@ -97,7 +75,7 @@ def render_decision_card(
     decided_at = decision.get("decided_at", "")
 
     # Format expander label (plain text for expander title)
-    date_str = _format_short_date(decided_at)
+    date_str = format_date(decided_at)
     action_label = DECISION_ACTIONS.get(action, DECISION_ACTIONS["pass"])["label"]
     label = f"**{ticker}** | {action_label} | {date_str}"
 
@@ -175,7 +153,7 @@ def render_thesis_card(
 
             created = thesis.get("created_at")
             if created:
-                st.caption(f"Created: {_format_short_date(created)}")
+                st.caption(f"Created: {format_date(created)}")
 
         with col2:
             st.metric("Decisions", decision_count)
@@ -267,7 +245,7 @@ def render_thesis_detail(thesis: dict[str, Any]) -> None:
                     unsafe_allow_html=True,
                 )
             with col3:
-                st.caption(_format_short_date(d.get("decided_at")))
+                st.caption(format_date(d.get("decided_at")))
 
 
 def render_decision_detail(decision: dict[str, Any]) -> None:
@@ -292,7 +270,7 @@ def render_decision_detail(decision: dict[str, Any]) -> None:
             unsafe_allow_html=True,
         )
     with col3:
-        st.markdown(f"**Date:** {_format_date(decision.get('decided_at'))}")
+        st.markdown(f"**Date:** {format_date(decision.get('decided_at'), include_time=True)}")
 
     st.divider()
 
