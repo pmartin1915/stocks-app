@@ -5,6 +5,8 @@ Provides a step-by-step workflow for researching stocks,
 creating investment theses, and recording decisions.
 """
 
+import html
+
 import streamlit as st
 
 from dashboard.components.ai_content import render_ai_section
@@ -388,13 +390,17 @@ def render_decision_step() -> None:
     bg_card = get_color('bg_secondary')
 
     st.markdown(f"**Thesis for {ticker}**")
+    # Escape user-provided content to prevent XSS
+    summary_safe = html.escape(thesis_draft.get('summary', ''))
+    bull_safe = html.escape(thesis_draft.get('bull_case', 'N/A')[:50])
+    bear_safe = html.escape(thesis_draft.get('bear_case', 'N/A')[:50])
     st.markdown(
         f"""
         <div style="background:{bg_card};padding:12px;border-radius:8px;margin-bottom:16px">
-            <div style="color:{gray};font-size:0.9rem">{thesis_draft.get('summary', '')}</div>
+            <div style="color:{gray};font-size:0.9rem">{summary_safe}</div>
             <div style="margin-top:8px">
-                <span style="color:{green}">Bull:</span> {thesis_draft.get('bull_case', 'N/A')[:50]}...
-                <span style="margin-left:16px;color:{red}">Bear:</span> {thesis_draft.get('bear_case', 'N/A')[:50]}...
+                <span style="color:{green}">Bull:</span> {bull_safe}...
+                <span style="margin-left:16px;color:{red}">Bear:</span> {bear_safe}...
             </div>
         </div>
         """,
