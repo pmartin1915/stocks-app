@@ -53,21 +53,30 @@ def init(ctx: click.Context) -> None:
 
 @db.command()
 @click.option("--full", is_flag=True, help="Force full re-download of bulk data")
+@click.option(
+    "--precompute/--no-precompute",
+    default=True,
+    help="Auto-precompute scores after refresh (default: enabled)"
+)
 @click.pass_context
-def refresh(ctx: click.Context, full: bool) -> None:
+def refresh(ctx: click.Context, full: bool, precompute: bool) -> None:
     """
     Download/update SEC bulk data.
 
     Downloads companyfacts.zip from SEC EDGAR for zero-API-call
     historical queries. File size is approximately 500MB.
 
+    By default, automatically precomputes scores after refresh for
+    instant screening performance.
+
     \b
     Note: This can take several minutes on first run.
 
     \b
     Examples:
-        asymmetric db refresh           # Incremental update
-        asymmetric db refresh --full    # Full re-download
+        asymmetric db refresh                   # Incremental update with auto-precompute
+        asymmetric db refresh --full            # Full re-download with auto-precompute
+        asymmetric db refresh --no-precompute   # Skip precomputation
     """
     console: Console = ctx.obj["console"]
 
@@ -109,7 +118,6 @@ def refresh(ctx: click.Context, full: bool) -> None:
 
         # Show stats
         stats = bulk.get_stats()
-        bulk.close()
 
         console.print()
         console.print("[green]Bulk data refresh complete![/green]")
@@ -123,6 +131,34 @@ def refresh(ctx: click.Context, full: bool) -> None:
         table.add_row("Last Refresh", stats['last_refresh'] or "N/A")
 
         console.print(table)
+
+        # Auto-precompute scores after successful refresh
+        if precompute and stats['ticker_count'] > 0:
+            console.print()
+            console.print("[bold blue]Precomputing scores for instant screening...[/bold blue]")
+
+            try:
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                    console=console,
+                ) as progress:
+                    task = progress.add_task("Calculating scores...", total=100)
+
+                    def progress_callback(pct: int):
+                        progress.update(task, completed=pct)
+
+                    count = bulk.precompute_scores(progress_callback=progress_callback)
+
+                console.print(f"[green]✓ Precomputed {count} scores[/green]")
+                console.print("[dim]Screening will now be instant with cached scores[/dim]")
+            except Exception as e:
+                console.print(f"[yellow]Warning: Score precomputation failed: {e}[/yellow]")
+                console.print("[dim]You can run 'asymmetric db precompute' manually[/dim]")
+
+        bulk.close()
 
     except SECRateLimitError as e:
         console.print(f"[red]SEC Rate Limit Hit:[/red] {e}")

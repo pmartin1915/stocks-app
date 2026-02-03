@@ -90,6 +90,16 @@ logger = logging.getLogger(__name__)
     default=None,
     help="Filter by industry (e.g., 'Software', 'Pharmaceuticals')",
 )
+@click.option(
+    "--use-cache/--no-cache",
+    default=True,
+    help="Use precomputed scores if available (default: enabled)",
+)
+@click.option(
+    "--force-recalculate",
+    is_flag=True,
+    help="Bypass cache and recalculate scores",
+)
 @click.pass_context
 def screen(
     ctx: click.Context,
@@ -104,6 +114,8 @@ def screen(
     add_to_watchlist: bool,
     sector: str | None,
     industry: str | None,
+    use_cache: bool,
+    force_recalculate: bool,
 ) -> None:
     """
     Screen stocks by quantitative criteria.
@@ -147,6 +159,44 @@ def screen(
                 console.print(f"[red]SEC Rate Limit Hit:[/red] {e}")
                 console.print("[yellow]Wait a few minutes and try again.[/yellow]")
                 raise SystemExit(1)
+
+        # Try precomputed scores first (instant path)
+        if use_cache and not force_recalculate:
+            if bulk.has_precomputed_scores():
+                scores_stats = bulk.get_scores_stats()
+                last_computed = scores_stats.get("last_computed")
+
+                # Check if cache is fresh (<24 hours old)
+                if last_computed and _is_fresh(last_computed, max_age_hours=24):
+                    console.print("[dim]Using precomputed scores (instant)...[/dim]")
+
+                    # INSTANT PATH - Pure SQL query
+                    results = bulk.get_precomputed_scores(
+                        piotroski_min=piotroski_min,
+                        altman_min=altman_min,
+                        altman_zone=altman_zone,
+                        limit=limit,
+                        sort_by=sort_by,
+                        sort_order=sort_order,
+                    )
+
+                    # Convert to expected format and display
+                    output = _format_precomputed_results(results, piotroski_min, altman_min, altman_zone)
+
+                    # Add to watchlist if requested
+                    if add_to_watchlist and results:
+                        added_count = _add_results_to_watchlist(results, output["criteria"])
+                        if not as_json:
+                            console.print(f"[green]Added {added_count} stocks to watchlist[/green]")
+                            console.print()
+
+                    if as_json:
+                        console.print(json.dumps(output, indent=2))
+                    else:
+                        _display_results(console, output)
+                    return
+                else:
+                    console.print("[yellow]Precomputed scores are stale (>24h), recalculating...[/yellow]")
 
         # Use optimized batch approach: get pre-filtered scorable tickers
         console.print("[dim]Finding scorable companies...[/dim]")
@@ -384,6 +434,45 @@ def _display_results(console: Console, output: dict) -> None:
         )
     else:
         console.print()
+
+
+def _is_fresh(timestamp_str: str, max_age_hours: int = 24) -> bool:
+    """Check if timestamp is fresh (within max_age_hours)."""
+    try:
+        timestamp = datetime.fromisoformat(timestamp_str)
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        age_hours = (datetime.now(timezone.utc) - timestamp).total_seconds() / 3600
+        return age_hours < max_age_hours
+    except (ValueError, TypeError):
+        return False
+
+
+def _format_precomputed_results(
+    results: list[dict],
+    piotroski_min: int | None,
+    altman_min: float | None,
+    altman_zone: str | None,
+) -> dict:
+    """Convert precomputed results to screen output format."""
+    criteria = {}
+    if piotroski_min is not None:
+        criteria["piotroski_min"] = piotroski_min
+    if altman_min is not None:
+        criteria["altman_min"] = altman_min
+    if altman_zone is not None:
+        criteria["altman_zone"] = altman_zone
+
+    return {
+        "criteria": criteria,
+        "stats": {
+            "total_tickers": len(results),
+            "total_scored": len(results),
+            "skipped": 0,
+            "matches": len(results),
+        },
+        "results": results,
+    }
 
 
 def _add_results_to_watchlist(results: list[dict], criteria: dict) -> int:
