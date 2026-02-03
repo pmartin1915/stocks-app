@@ -24,23 +24,19 @@ from dashboard.utils.ai_analysis import (
 from dashboard.utils.scoring import get_scores_for_ticker
 from dashboard.utils.sidebar import render_full_sidebar
 from dashboard.utils.validators import validate_ticker
+from dashboard.utils.session_state import init_page_state
 from dashboard.utils.watchlist import get_cached_scores, get_stocks, add_stock
 
 st.set_page_config(page_title="Compare | Asymmetric", layout="wide")
+
+# Initialize session state for this page
+init_page_state("compare")
 
 # Render sidebar (theme toggle, branding, navigation)
 render_full_sidebar()
 
 st.title("Compare")
 st.caption("Compare 2-3 stocks side-by-side with AI-powered analysis")
-
-# Initialize session state
-if "compare_tickers" not in st.session_state:
-    st.session_state.compare_tickers = []
-if "compare_results" not in st.session_state:
-    st.session_state.compare_results = {}
-if "compare_ai_result" not in st.session_state:
-    st.session_state.compare_ai_result = None
 
 
 def _fetch_scores(tickers: list[str]) -> dict[str, dict]:

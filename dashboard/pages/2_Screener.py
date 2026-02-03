@@ -17,7 +17,7 @@ from dashboard.utils.bulk_data import (
     get_screener_results,
     has_precomputed_scores,
 )
-from dashboard.utils.price_data import get_price_data, format_large_number
+from dashboard.utils.price_data import get_batch_price_data
 from dashboard.utils.sidebar import render_full_sidebar
 from dashboard.utils.watchlist import add_stock, get_stocks
 
@@ -192,19 +192,26 @@ else:
     watchlist = set(get_stocks())
     df["on_watchlist"] = df["ticker"].apply(lambda x: "✓" if x in watchlist else "")
 
-    # Add price data for top results (limit to avoid slow loads)
-    price_limit = min(len(df), 25)  # Only fetch prices for first 25
+    # Add price data using batch fetching (much faster than individual calls)
+    price_limit = min(len(df), 50)  # Fetch prices for first 50 results
+    tickers_to_fetch = tuple(df["ticker"].head(price_limit).tolist())
+
+    # Batch fetch all prices in one request
+    batch_prices = get_batch_price_data(tickers_to_fetch) if tickers_to_fetch else {}
+
+    # Extract price data into columns
     prices = []
     changes = []
     market_caps = []
 
     for i, ticker in enumerate(df["ticker"]):
-        if i < price_limit:
-            price_data = get_price_data(ticker)
+        if i < price_limit and ticker in batch_prices:
+            price_data = batch_prices[ticker]
             if "error" not in price_data:
                 prices.append(price_data.get("price"))
                 changes.append(price_data.get("change_pct"))
-                market_caps.append(format_large_number(price_data.get("market_cap")))
+                # Note: batch fetch doesn't include market_cap, show "—"
+                market_caps.append("—")
             else:
                 prices.append(None)
                 changes.append(None)
@@ -280,7 +287,7 @@ else:
 
     # Note about price data
     if len(df) > price_limit:
-        st.caption(f"💡 Price data shown for first {price_limit} results only.")
+        st.caption(f"💡 Price data shown for first {price_limit} results only (batch fetched for performance).")
 
     # Sector Heatmap visualization
     st.divider()

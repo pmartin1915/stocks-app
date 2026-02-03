@@ -24,6 +24,7 @@ from dashboard.utils.formatters import format_date
 from dashboard.utils.scoring import get_scores_for_ticker, refresh_scores
 from dashboard.utils.sidebar import render_full_sidebar
 from dashboard.utils.validators import validate_ticker
+from dashboard.utils.session_state import init_page_state
 from dashboard.utils.watchlist import (
     add_stock,
     get_cached_scores,
@@ -35,15 +36,14 @@ from dashboard.utils.watchlist import (
     update_cached_scores,
 )
 
+# Initialize session state for this page
+init_page_state("watchlist")
+
 # Render sidebar (theme toggle, branding, navigation)
 render_full_sidebar()
 
 st.title("Watchlist")
 st.caption("Track stocks with Piotroski F-Score and Altman Z-Score")
-
-# Initialize session state for confirmations
-if "confirm_remove" not in st.session_state:
-    st.session_state.confirm_remove = None
 
 
 def _get_top_stocks_for_compare(stocks: list[str], max_count: int = 3) -> list[str]:

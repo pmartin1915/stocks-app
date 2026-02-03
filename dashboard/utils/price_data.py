@@ -160,3 +160,81 @@ def format_percentage(pct: Optional[float], include_sign: bool = True) -> str:
         sign = "+" if pct >= 0 else ""
         return f"{sign}{pct:.2f}%"
     return f"{pct:.2f}%"
+
+
+@st.cache_data(ttl=300)  # Cache 5 minutes
+def get_batch_price_data(tickers: tuple[str, ...]) -> dict[str, dict]:
+    """Fetch price data for multiple tickers in a single batch request.
+
+    Uses yfinance.download() for efficient parallel fetching, significantly
+    faster than individual get_price_data() calls in a loop.
+
+    Args:
+        tickers: Tuple of ticker symbols (tuple for hashability in cache).
+
+    Returns:
+        Dict mapping ticker -> price data dict (same format as get_price_data).
+    """
+    if not YFINANCE_AVAILABLE:
+        return {t: {"error": "yfinance not installed"} for t in tickers}
+
+    if not tickers:
+        return {}
+
+    results = {}
+
+    try:
+        # Use yfinance.download for batch fetching (much faster than individual requests)
+        data = yf.download(
+            list(tickers),
+            period="5d",  # Get 5 days to calculate change
+            group_by="ticker",
+            progress=False,
+            threads=True,  # Enable parallel fetching
+        )
+
+        for ticker in tickers:
+            try:
+                # Extract ticker data from batch result
+                if len(tickers) == 1:
+                    ticker_data = data
+                else:
+                    ticker_data = data[ticker] if ticker in data.columns.get_level_values(0) else None
+
+                if ticker_data is None or ticker_data.empty or ticker_data["Close"].isna().all():
+                    results[ticker] = {"error": f"No data found for ticker: {ticker}"}
+                    continue
+
+                # Get the most recent valid close price
+                latest_close = ticker_data["Close"].dropna().iloc[-1] if not ticker_data["Close"].dropna().empty else None
+
+                if latest_close is None:
+                    results[ticker] = {"error": f"No price data for ticker: {ticker}"}
+                    continue
+
+                # Calculate change from previous day if available
+                close_prices = ticker_data["Close"].dropna()
+                if len(close_prices) >= 2:
+                    prev_close = close_prices.iloc[-2]
+                    change = latest_close - prev_close
+                    change_pct = (change / prev_close) * 100 if prev_close != 0 else 0
+                else:
+                    change = None
+                    change_pct = None
+
+                results[ticker] = {
+                    "price": float(latest_close),
+                    "change": float(change) if change is not None else None,
+                    "change_pct": float(change_pct) if change_pct is not None else None,
+                    "fetched_at": datetime.now(UTC).isoformat(),
+                }
+
+            except Exception as e:
+                results[ticker] = {"error": str(e)}
+
+    except Exception as e:
+        # If batch download fails entirely, return errors for all tickers
+        for ticker in tickers:
+            results[ticker] = {"error": f"Batch fetch failed: {str(e)}"}
+
+    return results

@@ -31,9 +31,13 @@ from dashboard.utils.decisions import (
     update_decision_outcome,
     update_thesis,
 )
+from dashboard.utils.session_state import init_page_state
 from dashboard.utils.watchlist import get_stocks
 
 st.set_page_config(page_title="Decisions | Asymmetric", layout="wide")
+
+# Initialize session state for this page
+init_page_state("decisions")
 
 # Render sidebar (theme toggle, branding, navigation)
 render_full_sidebar()
@@ -47,26 +51,6 @@ with st.container():
     with col2:
         if st.button("🧪 Research Wizard", type="secondary", use_container_width=True):
             st.switch_page("pages/8_Research.py")
-
-# Initialize session state
-if "selected_decision_id" not in st.session_state:
-    st.session_state.selected_decision_id = None
-if "selected_thesis_id" not in st.session_state:
-    st.session_state.selected_thesis_id = None
-if "show_decision_form" not in st.session_state:
-    st.session_state.show_decision_form = False
-if "show_thesis_form" not in st.session_state:
-    st.session_state.show_thesis_form = False
-if "decision_action_filter" not in st.session_state:
-    st.session_state.decision_action_filter = "all"
-if "decision_ticker_filter" not in st.session_state:
-    st.session_state.decision_ticker_filter = ""
-if "thesis_status_filter" not in st.session_state:
-    st.session_state.thesis_status_filter = "all"
-if "thesis_ticker_filter" not in st.session_state:
-    st.session_state.thesis_ticker_filter = ""
-if "editing_thesis_id" not in st.session_state:
-    st.session_state.editing_thesis_id = None
 
 # Get watchlist for ticker filters
 watchlist_stocks = get_stocks()
