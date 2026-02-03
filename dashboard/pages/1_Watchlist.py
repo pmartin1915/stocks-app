@@ -61,7 +61,14 @@ def _get_top_stocks_for_compare(stocks: list[str], max_count: int = 3) -> list[s
     for ticker in stocks:
         cached = get_cached_scores(ticker)
         if cached and "piotroski" in cached:
-            fscore = cached["piotroski"].get("score", 0)
+            piotroski_data = cached["piotroski"]
+            # Handle both dict and int cached scores
+            if isinstance(piotroski_data, dict):
+                fscore = piotroski_data.get("score", 0)
+            elif isinstance(piotroski_data, int):
+                fscore = piotroski_data
+            else:
+                fscore = 0
             scored.append((ticker, fscore))
         else:
             # No score, use 0
