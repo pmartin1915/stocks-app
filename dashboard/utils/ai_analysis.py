@@ -1,7 +1,7 @@
 """AI analysis utilities for the dashboard."""
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Optional
 
 import streamlit as st
 
@@ -367,3 +367,33 @@ def format_analysis_metadata(result: dict[str, Any]) -> str:
     ]
 
     return " | ".join(parts)
+
+
+def handle_ai_analysis_error(e: Exception) -> None:
+    """
+    Display user-friendly error messages for AI analysis failures.
+
+    Centralizes error handling for AI analysis operations to provide
+    consistent, actionable error messages across the dashboard.
+
+    Args:
+        e: The exception that was raised during AI analysis.
+
+    Examples:
+        >>> try:
+        ...     result = run_single_stock_analysis(ticker, scores)
+        ... except ImportError as e:
+        ...     st.error("❌ AI analysis not available...")
+        ... except Exception as e:
+        ...     handle_ai_analysis_error(e)
+    """
+    error_msg = str(e)
+
+    if "API key" in error_msg or "GEMINI_API_KEY" in error_msg:
+        st.error("❌ Gemini API key not configured. Set GEMINI_API_KEY environment variable.")
+    elif "rate limit" in error_msg.lower():
+        st.error("❌ Rate limit exceeded. Please wait a moment and try again.")
+    elif "timeout" in error_msg.lower():
+        st.error("❌ Request timed out. Please check your internet connection and try again.")
+    else:
+        st.error(f"❌ Analysis failed: {error_msg}")

@@ -5,8 +5,6 @@ Provides a step-by-step workflow for researching stocks,
 creating investment theses, and recording decisions.
 """
 
-import html
-
 import streamlit as st
 
 from dashboard.components.ai_content import render_ai_section
@@ -18,8 +16,10 @@ from dashboard.components.stock_card import (
 )
 from dashboard.components import icons
 from dashboard.theme import get_semantic_color, get_plotly_theme
+from dashboard.utils.formatters import format_date_friendly
 from dashboard.utils.sidebar import render_full_sidebar
 from dashboard.utils.scoring import get_scores_for_ticker
+from dashboard.utils.validators import sanitize_html
 from dashboard.utils.watchlist import get_cached_scores, get_stocks, add_stock
 
 st.set_page_config(page_title="Research | Asymmetric", layout="wide")
@@ -187,43 +187,33 @@ def render_research_step() -> None:
                     if st.button("Quick Analysis (Flash)", use_container_width=True):
                         with st.spinner("Analyzing with Gemini Flash..."):
                             try:
-                                from dashboard.utils.ai_analysis import run_single_stock_analysis
+                                from dashboard.utils.ai_analysis import (
+                                    run_single_stock_analysis,
+                                    handle_ai_analysis_error,
+                                )
                                 st.session_state.research_ai_analysis = run_single_stock_analysis(
                                     selected_ticker, scores, model="flash"
                                 )
                             except ImportError:
                                 st.error("❌ AI analysis not available. Please check your Gemini API key configuration.")
                             except Exception as e:
-                                error_msg = str(e)
-                                if "API key" in error_msg or "GEMINI_API_KEY" in error_msg:
-                                    st.error("❌ Gemini API key not configured. Set GEMINI_API_KEY environment variable.")
-                                elif "rate limit" in error_msg.lower():
-                                    st.error("❌ Rate limit exceeded. Please wait a moment and try again.")
-                                elif "timeout" in error_msg.lower():
-                                    st.error("❌ Request timed out. Please check your internet connection and try again.")
-                                else:
-                                    st.error(f"❌ Analysis failed: {error_msg}")
+                                handle_ai_analysis_error(e)
 
                 with ai_col2:
                     if st.button("Deep Analysis (Pro)", use_container_width=True):
                         with st.spinner("Analyzing with Gemini Pro..."):
                             try:
-                                from dashboard.utils.ai_analysis import run_single_stock_analysis
+                                from dashboard.utils.ai_analysis import (
+                                    run_single_stock_analysis,
+                                    handle_ai_analysis_error,
+                                )
                                 st.session_state.research_ai_analysis = run_single_stock_analysis(
                                     selected_ticker, scores, model="pro"
                                 )
                             except ImportError:
                                 st.error("❌ AI analysis not available. Please check your Gemini API key configuration.")
                             except Exception as e:
-                                error_msg = str(e)
-                                if "API key" in error_msg or "GEMINI_API_KEY" in error_msg:
-                                    st.error("❌ Gemini API key not configured. Set GEMINI_API_KEY environment variable.")
-                                elif "rate limit" in error_msg.lower():
-                                    st.error("❌ Rate limit exceeded. Please wait a moment and try again.")
-                                elif "timeout" in error_msg.lower():
-                                    st.error("❌ Request timed out. Please check your internet connection and try again.")
-                                else:
-                                    st.error(f"❌ Analysis failed: {error_msg}")
+                                handle_ai_analysis_error(e)
 
                 # Display AI analysis if available
                 if st.session_state.research_ai_analysis:
@@ -391,9 +381,9 @@ def render_decision_step() -> None:
 
     st.markdown(f"**Thesis for {ticker}**")
     # Escape user-provided content to prevent XSS
-    summary_safe = html.escape(thesis_draft.get('summary', ''))
-    bull_safe = html.escape(thesis_draft.get('bull_case', 'N/A')[:50])
-    bear_safe = html.escape(thesis_draft.get('bear_case', 'N/A')[:50])
+    summary_safe = sanitize_html(thesis_draft.get('summary', ''))
+    bull_safe = sanitize_html(thesis_draft.get('bull_case', 'N/A')[:50])
+    bear_safe = sanitize_html(thesis_draft.get('bear_case', 'N/A')[:50])
     st.markdown(
         f"""
         <div style="background:{bg_card};padding:12px;border-radius:8px;margin-bottom:16px">
@@ -558,15 +548,7 @@ def render_review_outcomes_tab() -> None:
             decided_at = decision.get("decided_at", "N/A")
 
             # Parse date for display
-            if decided_at != "N/A":
-                from datetime import datetime
-                try:
-                    dt = datetime.fromisoformat(decided_at)
-                    date_str = dt.strftime("%b %d, %Y")
-                except:
-                    date_str = decided_at
-            else:
-                date_str = "Unknown date"
+            date_str = format_date_friendly(decided_at)
 
             with st.expander(f"📊 {ticker} - {action} ({date_str}) - Conviction: {confidence}/5"):
                 # Fetch full decision details including thesis
@@ -667,25 +649,8 @@ def render_review_outcomes_tab() -> None:
             decided_at = decision.get("decided_at", "N/A")
             outcome_date = decision.get("outcome_date", "N/A")
 
-            if decided_at != "N/A":
-                from datetime import datetime
-                try:
-                    dt = datetime.fromisoformat(decided_at)
-                    decided_str = dt.strftime("%b %d, %Y")
-                except:
-                    decided_str = decided_at
-            else:
-                decided_str = "Unknown"
-
-            if outcome_date != "N/A":
-                from datetime import datetime
-                try:
-                    dt = datetime.fromisoformat(outcome_date)
-                    outcome_str = dt.strftime("%b %d, %Y")
-                except:
-                    outcome_str = outcome_date
-            else:
-                outcome_str = "Unknown"
+            decided_str = format_date_friendly(decided_at, default="Unknown")
+            outcome_str = format_date_friendly(outcome_date, default="Unknown")
 
             # Color code based on hit
             if hit is True:

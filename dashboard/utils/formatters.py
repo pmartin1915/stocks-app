@@ -150,3 +150,32 @@ def format_currency(value: float | None, precision: int = 2, symbol: str = "$") 
         return "N/A"
 
     return f"{symbol}{value:,.{precision}f}"
+
+
+def format_date_friendly(iso_date: Optional[str], default: str = "Unknown date") -> str:
+    """Format ISO date string in a user-friendly format (e.g., 'Jan 15, 2024').
+
+    Args:
+        iso_date: ISO format date string (e.g., "2024-01-15T10:30:00").
+        default: Value to return if date is None or invalid.
+
+    Returns:
+        Formatted date string like "Jan 15, 2024".
+
+    Examples:
+        >>> format_date_friendly("2024-01-15T10:30:00")
+        "Jan 15, 2024"
+        >>> format_date_friendly("N/A")
+        "Unknown date"
+        >>> format_date_friendly(None, "No date")
+        "No date"
+    """
+    if not iso_date or iso_date == "N/A":
+        return default
+
+    try:
+        dt = datetime.fromisoformat(iso_date)
+        return dt.strftime("%b %d, %Y")
+    except (ValueError, TypeError):
+        # If parsing fails, return the original string or default
+        return iso_date if iso_date else default

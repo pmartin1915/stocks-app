@@ -108,7 +108,12 @@ def get_session() -> Generator[Session, None, None]:
     try:
         yield session
         session.commit()
-    except Exception:
+    except Exception as e:
+        logger.error(
+            "Database transaction failed, rolling back: %s",
+            str(e),
+            exc_info=True,
+        )
         session.rollback()
         raise
     finally:

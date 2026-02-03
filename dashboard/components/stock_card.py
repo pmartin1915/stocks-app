@@ -17,6 +17,7 @@ from dashboard.utils.price_data import (
     get_price_history,
     format_large_number,
 )
+from dashboard.utils.validators import sanitize_html
 
 
 def render_price_badge(ticker: str) -> None:
@@ -360,6 +361,9 @@ def render_stock_card(
         thesis_summary = thesis.get("summary", "")[:100]
         bear_case = thesis.get("bear_case", "")
 
+        # Sanitize user-controlled content to prevent XSS
+        thesis_summary_safe = sanitize_html(thesis_summary)
+
         # Thesis icon based on AI vs human
         if thesis.get("ai_generated"):
             source_icon = icons.badge("AI", get_semantic_color("blue"), text_on_accent, "small")
@@ -375,7 +379,7 @@ def render_stock_card(
             {source_icon}
         </div>
         <div style="font-size:0.9rem;color:{text_secondary};margin-bottom:4px">
-            {thesis_summary}{'...' if len(thesis.get('summary', '')) > 100 else ''}
+            {thesis_summary_safe}{'...' if len(thesis.get('summary', '')) > 100 else ''}
         </div>
         """,
             unsafe_allow_html=True,
@@ -385,12 +389,14 @@ def render_stock_card(
         if bear_case:
             first_risk = bear_case.split("\n")[0][:80] if bear_case else ""
             if first_risk:
+                # Sanitize user-controlled content to prevent XSS
+                first_risk_safe = sanitize_html(first_risk)
                 yellow_color = get_semantic_color('yellow')
                 st.markdown(
                     f"""
                 <div style="display:flex;align-items:center;gap:4px;font-size:0.85rem">
                     <span style="color:{yellow_color}">⚠</span>
-                    <span style="color:{text_secondary}">{first_risk}</span>
+                    <span style="color:{text_secondary}">{first_risk_safe}</span>
                 </div>
                 """,
                     unsafe_allow_html=True,

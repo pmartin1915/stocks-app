@@ -2,8 +2,10 @@
 
 Provides reusable validation functions for user input like ticker symbols,
 consolidating duplicate validation logic from individual pages.
+Also provides HTML sanitization for XSS prevention.
 """
 
+import html
 import re
 
 
@@ -77,3 +79,45 @@ def validate_price_targets(
         if target_price <= stop_loss:
             return False, "Target price must be greater than stop loss"
     return True, ""
+
+
+def sanitize_html(text: str) -> str:
+    """Sanitize user-provided text for safe HTML display.
+
+    Escapes HTML special characters to prevent XSS attacks.
+    Use this function whenever displaying user-controlled content
+    in HTML contexts (unsafe_allow_html=True).
+
+    Args:
+        text: User-provided text that may contain HTML.
+
+    Returns:
+        HTML-escaped text safe for display.
+
+    Examples:
+        >>> sanitize_html("<script>alert('xss')</script>")
+        "&lt;script&gt;alert('xss')&lt;/script&gt;"
+        >>> sanitize_html("Normal text & symbols")
+        "Normal text &amp; symbols"
+    """
+    if not text:
+        return ""
+    return html.escape(text)
+
+
+def sanitize_html_multi(*texts: str) -> list[str]:
+    """Sanitize multiple text values at once.
+
+    Convenience function for sanitizing multiple fields.
+
+    Args:
+        *texts: Variable number of text strings to sanitize.
+
+    Returns:
+        List of sanitized strings in the same order.
+
+    Examples:
+        >>> sanitize_html_multi("<b>Title</b>", "<i>Description</i>")
+        ["&lt;b&gt;Title&lt;/b&gt;", "&lt;i&gt;Description&lt;/i&gt;"]
+    """
+    return [sanitize_html(text) for text in texts]
