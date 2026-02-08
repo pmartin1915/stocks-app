@@ -208,6 +208,53 @@ def is_cache_expired(ticker: str) -> bool:
     return False
 
 
+def get_all_stock_data() -> dict[str, dict[str, Any]]:
+    """Load watchlist once and return all stock data keyed by ticker.
+
+    This avoids the N+1 problem of calling get_stock_data() per ticker
+    in a loop. Single JSON file read for all stocks.
+
+    Returns:
+        Dict mapping ticker -> stock data dict.
+    """
+    wl = load_watchlist()
+    return wl.get("stocks", {})
+
+
+def get_all_cached_scores(
+    stock_data: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any] | None]:
+    """Extract valid cached scores from pre-loaded stock data.
+
+    Checks TTL for each ticker and returns only non-expired scores.
+    Avoids repeated JSON file reads by working on pre-loaded data.
+
+    Args:
+        stock_data: Pre-loaded stock data from get_all_stock_data().
+
+    Returns:
+        Dict mapping ticker -> cached scores dict or None if expired/missing.
+    """
+    from dashboard.config import SCORE_CACHE_TTL
+
+    now = datetime.now(UTC)
+    results = {}
+
+    for ticker, data in stock_data.items():
+        if data and "cached_scores" in data and "cached_at" in data:
+            try:
+                cached_at = datetime.fromisoformat(data["cached_at"])
+                age_seconds = (now - cached_at).total_seconds()
+                if age_seconds < SCORE_CACHE_TTL:
+                    results[ticker] = data["cached_scores"]
+                    continue
+            except (ValueError, TypeError):
+                pass
+        results[ticker] = None
+
+    return results
+
+
 def clear_watchlist() -> int:
     """Clear all stocks from watchlist.
 

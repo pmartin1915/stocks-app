@@ -27,9 +27,8 @@ from dashboard.utils.validators import validate_ticker
 from dashboard.utils.session_state import init_page_state
 from dashboard.utils.watchlist import (
     add_stock,
-    get_cached_scores,
-    get_stock_data,
-    get_stocks,
+    get_all_cached_scores,
+    get_all_stock_data,
     load_watchlist,
     remove_stock,
     save_watchlist,
@@ -46,23 +45,26 @@ st.title("Watchlist")
 st.caption("Track stocks with Piotroski F-Score and Altman Z-Score")
 
 
-def _get_top_stocks_for_compare(stocks: list[str], max_count: int = 3) -> list[str]:
+def _get_top_stocks_for_compare(
+    stocks: list[str],
+    all_scores: dict[str, dict | None],
+    max_count: int = 3,
+) -> list[str]:
     """Get top stocks by F-Score for comparison.
 
     Args:
         stocks: List of ticker symbols from watchlist.
+        all_scores: Pre-loaded cached scores from get_all_cached_scores().
         max_count: Maximum number of stocks to return.
 
     Returns:
         List of up to max_count tickers, sorted by F-Score (highest first).
     """
-    # Get scores for each stock
     scored = []
     for ticker in stocks:
-        cached = get_cached_scores(ticker)
+        cached = all_scores.get(ticker)
         if cached and "piotroski" in cached:
             piotroski_data = cached["piotroski"]
-            # Handle both dict and int cached scores
             if isinstance(piotroski_data, dict):
                 fscore = piotroski_data.get("score", 0)
             elif isinstance(piotroski_data, int):
@@ -71,13 +73,9 @@ def _get_top_stocks_for_compare(stocks: list[str], max_count: int = 3) -> list[s
                 fscore = 0
             scored.append((ticker, fscore))
         else:
-            # No score, use 0
             scored.append((ticker, 0))
 
-    # Sort by F-Score descending
     scored.sort(key=lambda x: x[1], reverse=True)
-
-    # Return top N tickers
     return [ticker for ticker, _ in scored[:max_count]]
 
 
@@ -115,8 +113,10 @@ with st.container():
 
 st.divider()
 
-# Get watchlist
-stocks = get_stocks()
+# Get watchlist — single JSON read for all data
+all_stock_data = get_all_stock_data()
+stocks = list(all_stock_data.keys())
+all_scores = get_all_cached_scores(all_stock_data)
 
 if not stocks:
     st.info("""
@@ -188,10 +188,10 @@ else:
                         st.caption(msg)
                 st.rerun()
 
-    # Display stocks
+    # Display stocks (using pre-loaded data — no per-stock file reads)
     for ticker in sorted(stocks):
-        data = get_stock_data(ticker)
-        cached_scores = get_cached_scores(ticker)
+        data = all_stock_data.get(ticker)
+        cached_scores = all_scores.get(ticker)
 
         # Validate cached scores before accessing
         piotroski = None
@@ -296,7 +296,7 @@ else:
     with col1:
         if st.button("Compare Top 3", disabled=len(stocks) < 2):
             # Get top stocks by F-Score (or first stocks if no scores)
-            top_stocks = _get_top_stocks_for_compare(stocks, max_count=3)
+            top_stocks = _get_top_stocks_for_compare(stocks, all_scores, max_count=3)
             st.session_state["compare_tickers"] = top_stocks
             st.switch_page("pages/3_Compare.py")
 
