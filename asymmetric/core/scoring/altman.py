@@ -42,31 +42,25 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from asymmetric.core.data.exceptions import InsufficientDataError
+from asymmetric.core.scoring.constants import (
+    ALTMAN_MFG_COEFFICIENTS,
+    ALTMAN_NON_MFG_COEFFICIENTS,
+    ZERO_LIABILITIES_EQUITY_CAP,
+    ZSCORE_MFG_GREY_LOW,
+    ZSCORE_MFG_SAFE,
+    ZSCORE_NON_MFG_GREY_LOW,
+    ZSCORE_NON_MFG_SAFE,
+)
 
 logger = logging.getLogger(__name__)
 
-
-# Zone boundaries
-MANUFACTURING_SAFE = 2.99
-MANUFACTURING_GREY_LOW = 1.81
-NON_MANUFACTURING_SAFE = 2.60
-NON_MANUFACTURING_GREY_LOW = 1.10
-
-# Formula coefficients
-MANUFACTURING_COEFFICIENTS = {
-    "x1": 1.2,   # Working Capital / Total Assets
-    "x2": 1.4,   # Retained Earnings / Total Assets
-    "x3": 3.3,   # EBIT / Total Assets
-    "x4": 0.6,   # Market Value Equity / Total Liabilities
-    "x5": 1.0,   # Sales / Total Assets
-}
-
-NON_MANUFACTURING_COEFFICIENTS = {
-    "x1": 6.56,  # Working Capital / Total Assets
-    "x2": 3.26,  # Retained Earnings / Total Assets
-    "x3": 6.72,  # EBIT / Total Assets
-    "x4": 1.05,  # Book Value Equity / Total Liabilities
-}
+# Re-export for backward compatibility
+MANUFACTURING_SAFE = ZSCORE_MFG_SAFE
+MANUFACTURING_GREY_LOW = ZSCORE_MFG_GREY_LOW
+NON_MANUFACTURING_SAFE = ZSCORE_NON_MFG_SAFE
+NON_MANUFACTURING_GREY_LOW = ZSCORE_NON_MFG_GREY_LOW
+MANUFACTURING_COEFFICIENTS = ALTMAN_MFG_COEFFICIENTS
+NON_MANUFACTURING_COEFFICIENTS = ALTMAN_NON_MFG_COEFFICIENTS
 
 
 @dataclass
@@ -456,9 +450,9 @@ class AltmanScorer:
         if inputs.total_liabilities is None or inputs.total_liabilities == 0:
             if inputs.total_liabilities == 0:
                 # No liabilities is actually a good sign - return high ratio
-                # DEVIATION: Capped at 10.0 to prevent infinite/undefined values
-                logger.info("Total liabilities is zero, using maximum equity ratio of 10.0")
-                return 10.0  # Cap at reasonable high value
+                # DEVIATION: Capped to prevent infinite/undefined values
+                logger.info(f"Total liabilities is zero, using maximum equity ratio of {ZERO_LIABILITIES_EQUITY_CAP}")
+                return ZERO_LIABILITIES_EQUITY_CAP
             return None
 
         # Use market cap for manufacturing, book equity for non-manufacturing

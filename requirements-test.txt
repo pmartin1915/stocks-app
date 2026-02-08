@@ -1,0 +1,16 @@
+# Testing dependencies for Asymmetric Dashboard
+# Install with: pip install -r requirements-test.txt
+
+# Core testing
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+
+# E2E browser testing
+playwright>=1.40.0
+
+# Visual regression testing
+Pillow>=10.1.0
+
+# Test reporting
+pytest-html>=4.1.0

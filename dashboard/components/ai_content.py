@@ -337,8 +337,8 @@ def _format_content(content: str) -> str:
     Returns:
         HTML-safe formatted content.
     """
-    # Basic escaping
-    content = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    import html
+    content = html.escape(content)
 
     # Convert markdown-style bullets to HTML
     lines = content.split("\n")

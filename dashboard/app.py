@@ -37,7 +37,7 @@ value investors. This dashboard provides a visual interface for:
 ### New Features
 - **Trends** — Visualize F-Score and Z-Score trajectories over time with interactive Plotly charts
 - **Alerts** — Configure threshold alerts for score changes and zone transitions
-- **Portfolio** — Track holdings with FIFO cost basis, P&L, and portfolio-weighted scores
+- **Portfolio** — Track holdings with weighted average cost basis, P&L, and portfolio-weighted scores
 
 ---
 

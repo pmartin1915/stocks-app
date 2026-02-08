@@ -130,9 +130,11 @@ class PiotroskiResult:
 
     def _get_interpretation(self) -> str:
         """Get human-readable interpretation of the score."""
-        if self.score >= 7:
+        from asymmetric.core.scoring.constants import FSCORE_MODERATE_MIN, FSCORE_STRONG_MIN
+
+        if self.score >= FSCORE_STRONG_MIN:
             return "Strong - Financially healthy"
-        elif self.score >= 4:
+        elif self.score >= FSCORE_MODERATE_MIN:
             return "Moderate - Mixed signals"
         else:
             return "Weak - Financial concerns"

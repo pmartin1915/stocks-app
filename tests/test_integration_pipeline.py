@@ -128,10 +128,11 @@ class TestDatabasePersistence:
 
         # Save to database
         with get_session() as session:
-            stock = get_or_create_stock("TEST", "0000000001", "Test Company Inc.")
+            stock = get_or_create_stock(session, "TEST", "0000000001", "Test Company Inc.")
+            stock_id = stock.id  # Capture before session closes
 
             score = StockScore(
-                stock_id=stock.id,
+                stock_id=stock_id,
                 piotroski_score=p_result.score,
                 piotroski_signals_available=p_result.signals_available,
                 piotroski_interpretation=p_result.interpretation,
@@ -148,7 +149,7 @@ class TestDatabasePersistence:
         # Retrieve and verify
         with get_session() as session:
             saved_score = session.exec(
-                select(StockScore).where(StockScore.stock_id == stock.id)
+                select(StockScore).where(StockScore.stock_id == stock_id)
             ).first()
 
             assert saved_score is not None
@@ -181,7 +182,7 @@ class TestDatabasePersistence:
 
         # Save both to same stock
         with get_session() as session:
-            stock = get_or_create_stock(unique_ticker, "0000000002", "Multi-Score Corp")
+            stock = get_or_create_stock(session, unique_ticker, "0000000002", "Multi-Score Corp")
 
             score_2023 = StockScore(
                 stock_id=stock.id,
@@ -242,7 +243,7 @@ class TestDatabasePersistence:
         a_result = altman.calculate_from_dict(current, is_manufacturing=True)
 
         with get_session() as session:
-            stock = get_or_create_stock(unique_ticker, "0000000003", "Relationship Test Inc.")
+            stock = get_or_create_stock(session, unique_ticker, "0000000003", "Relationship Test Inc.")
 
             score = StockScore(
                 stock_id=stock.id,

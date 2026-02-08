@@ -145,8 +145,7 @@ def create_decision(
                 raise ValueError(f"Thesis not found: {thesis_id}")
         else:
             # Create quick thesis for this decision
-            stock = get_or_create_stock(ticker.upper())
-            stock = session.merge(stock)
+            stock = get_or_create_stock(session, ticker.upper())
 
             thesis = Thesis(
                 stock_id=stock.id,
@@ -336,8 +335,7 @@ def create_thesis(
     init_db()
 
     with get_session() as session:
-        stock = get_or_create_stock(ticker.upper())
-        stock = session.merge(stock)
+        stock = get_or_create_stock(session, ticker.upper())
 
         thesis = Thesis(
             stock_id=stock.id,

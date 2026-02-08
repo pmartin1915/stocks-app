@@ -313,8 +313,7 @@ def _save_score_to_db(ticker: str, results: dict) -> None:
     a = results.get("altman", {})
 
     with get_session() as session:
-        stock = get_or_create_stock(ticker)
-        stock = session.merge(stock)
+        stock = get_or_create_stock(session, ticker)
 
         score_record = StockScore(
             stock_id=stock.id,

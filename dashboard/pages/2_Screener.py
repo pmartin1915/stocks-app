@@ -89,13 +89,15 @@ st.subheader("Filters")
 
 col1, col2, col3 = st.columns(3)
 
+from asymmetric.core.scoring.constants import FSCORE_MAX, ZSCORE_MFG_GREY_LOW, ZSCORE_MFG_SAFE
+
 with col1:
     piotroski_min = st.slider(
         "Minimum F-Score",
         min_value=0,
-        max_value=9,
+        max_value=FSCORE_MAX,
         value=5,
-        help="Piotroski F-Score measures financial health (0-9). Higher is better.",
+        help=f"Piotroski F-Score measures financial health (0-{FSCORE_MAX}). Higher is better.",
     )
 
 with col2:
@@ -103,10 +105,10 @@ with col2:
         "Minimum Z-Score",
         min_value=-10.0,
         max_value=50.0,
-        value=1.81,
+        value=ZSCORE_MFG_GREY_LOW,
         step=0.1,
         format="%.2f",
-        help="Altman Z-Score measures bankruptcy risk. >2.99 is Safe, <1.81 is Distress.",
+        help=f"Altman Z-Score measures bankruptcy risk. >{ZSCORE_MFG_SAFE} is Safe, <{ZSCORE_MFG_GREY_LOW} is Distress.",
     )
 
 with col3:

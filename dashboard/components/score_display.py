@@ -52,11 +52,13 @@ def render_fscore_gauge(score: int | None, show_label: bool = True) -> None:
             )
         return
 
+    from asymmetric.core.scoring.constants import FSCORE_MODERATE_MIN, FSCORE_STRONG_MIN
+
     # Determine color and interpretation
-    if score >= 7:
+    if score >= FSCORE_STRONG_MIN:
         color = get_semantic_color("green")
         interp = "Strong"
-    elif score >= 4:
+    elif score >= FSCORE_MODERATE_MIN:
         color = get_semantic_color("yellow")
         interp = "Moderate"
     else:
@@ -109,9 +111,11 @@ def render_zscore_gauge(z_score: float | None, zone: str | None) -> None:
         )
         return
 
+    from asymmetric.core.scoring.constants import ZSCORE_MFG_GREY_LOW, ZSCORE_MFG_SAFE
+
     # Zone thresholds
-    distress_threshold = 1.81
-    safe_threshold = 2.99
+    distress_threshold = ZSCORE_MFG_GREY_LOW
+    safe_threshold = ZSCORE_MFG_SAFE
     max_display = 5.0  # Cap display at 5.0 for visualization
 
     # Normalize to percentage (0-100)

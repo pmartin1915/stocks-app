@@ -22,8 +22,7 @@ def existing_thesis(tmp_db):
     init_db()
 
     with get_session() as session:
-        stock = get_or_create_stock("AAPL")
-        stock = session.merge(stock)
+        stock = get_or_create_stock(session, "AAPL")
         thesis = Thesis(
             stock_id=stock.id,
             summary="Test thesis for AAPL",

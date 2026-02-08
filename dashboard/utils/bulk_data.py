@@ -161,12 +161,13 @@ def format_last_refresh(iso_str: str | None) -> str:
     try:
         # Handle both ISO format and DuckDB timestamp format
         if isinstance(iso_str, str):
-            # Remove microseconds if present for simpler parsing
-            if "." in iso_str:
-                iso_str = iso_str.split(".")[0]
             dt = datetime.fromisoformat(iso_str)
         else:
             dt = iso_str  # Already a datetime
+
+        # Ensure timezone-aware for comparison
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
 
         now = datetime.now(UTC)
         delta = now - dt

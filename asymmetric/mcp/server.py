@@ -27,16 +27,13 @@ Usage:
 import asyncio
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from mcp.server import Server
 from mcp.server.lowlevel.server import NotificationOptions
 from mcp.server.models import InitializationOptions
 from mcp.types import (
-    CallToolRequest,
-    CallToolResult,
-    ListToolsRequest,
     TextContent,
     Tool,
 )
@@ -57,7 +54,7 @@ class ServerConfig:
 
     transport: str = "stdio"  # "stdio" or "http"
     port: Optional[int] = None  # Defaults to config.mcp_default_port
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     log_level: str = "INFO"
 
     # Feature flags
@@ -372,7 +369,9 @@ class AsymmetricMCPServer:
         @self.server.call_tool()
         async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             """Handle tool execution."""
-            logger.info(f"Tool called: {name} with args: {arguments}")
+            # Log tool name but truncate args to avoid leaking sensitive data
+            safe_args = {k: (v[:50] + "...") if isinstance(v, str) and len(v) > 50 else v for k, v in arguments.items()}
+            logger.info(f"Tool called: {name} with args: {safe_args}")
 
             try:
                 result = await self._dispatch_tool(name, arguments)
@@ -382,7 +381,11 @@ class AsymmetricMCPServer:
 
             except Exception as e:
                 logger.exception(f"Tool {name} failed: {e}")
-                error_response = {"error": str(e), "tool": name}
+                # Return generic message to client; details stay in server logs
+                error_response = {
+                    "error": "An internal error occurred. Check server logs for details.",
+                    "tool": name,
+                }
                 return [TextContent(type="text", text=_format_json_response(error_response))]
 
     async def _dispatch_tool(self, name: str, arguments: dict) -> dict[str, Any]:
@@ -749,7 +752,7 @@ class AsymmetricMCPServer:
 
     async def run_http(
         self,
-        host: str = "0.0.0.0",
+        host: str = "127.0.0.1",
         port: int = 8000,
         auto_port: bool = False,
     ) -> int:
@@ -836,7 +839,7 @@ def create_server(config: Optional[ServerConfig] = None) -> AsymmetricMCPServer:
 
 def run_server(
     transport: str = "stdio",
-    host: str = "0.0.0.0",
+    host: str = "127.0.0.1",
     port: int = 8000,
     auto_port: bool = False,
 ) -> int | None:

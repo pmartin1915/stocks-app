@@ -150,8 +150,7 @@ Format your response with clear section headers."""
 
     # Save to database
     with get_session() as session:
-        stock = get_or_create_stock(ticker)
-        stock = session.merge(stock)
+        stock = get_or_create_stock(session, ticker)
 
         thesis = Thesis(
             stock_id=stock.id,
@@ -223,8 +222,7 @@ def _create_manual_thesis(
 
     # Save to database
     with get_session() as session:
-        stock = get_or_create_stock(ticker)
-        stock = session.merge(stock)
+        stock = get_or_create_stock(session, ticker)
 
         thesis = Thesis(
             stock_id=stock.id,

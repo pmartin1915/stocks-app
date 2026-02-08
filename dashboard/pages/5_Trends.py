@@ -114,9 +114,11 @@ with tab_history:
                 # Add zone bands to Z-Score axis
                 green = get_semantic_color('green')
                 red = get_semantic_color('red')
-                fig.add_hline(y=2.99, line_dash="dash", line_color=green,
+                from asymmetric.core.scoring.constants import ZSCORE_MFG_GREY_LOW, ZSCORE_MFG_SAFE
+
+                fig.add_hline(y=ZSCORE_MFG_SAFE, line_dash="dash", line_color=green,
                              annotation_text="Safe Zone", secondary_y=True)
-                fig.add_hline(y=1.81, line_dash="dash", line_color=red,
+                fig.add_hline(y=ZSCORE_MFG_GREY_LOW, line_dash="dash", line_color=red,
                              annotation_text="Distress Zone", secondary_y=True)
 
                 fig.update_layout(

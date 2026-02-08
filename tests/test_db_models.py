@@ -11,11 +11,11 @@ import pytest
 from sqlmodel import select
 
 from asymmetric.db.database import (
+    ensure_stock,
     get_engine,
-    get_or_create_stock,
     get_session,
-    get_stock_by_ticker,
     init_db,
+    lookup_stock,
     reset_engine,
 )
 from asymmetric.db.models import (
@@ -291,7 +291,7 @@ class TestScreeningRunModel:
 class TestHelperFunctions:
     """Tests for database helper functions."""
 
-    def test_get_stock_by_ticker(self, temp_db_path):
+    def test_lookup_stock(self, temp_db_path):
         """Should find stock by ticker."""
         init_db()
 
@@ -299,14 +299,11 @@ class TestHelperFunctions:
             stock = Stock(ticker="FIND", cik="111", company_name="Findable")
             session.add(stock)
 
-        # Note: get_stock_by_ticker creates its own session
-        # Due to session scope, this might not find the stock
-        # unless we commit and create new session
-        result = get_stock_by_ticker("FIND")
+        result = lookup_stock("FIND")
         assert result is not None
         assert result.company_name == "Findable"
 
-    def test_get_stock_by_ticker_case_insensitive(self, temp_db_path):
+    def test_lookup_stock_case_insensitive(self, temp_db_path):
         """Should find stock regardless of case."""
         init_db()
 
@@ -314,42 +311,42 @@ class TestHelperFunctions:
             stock = Stock(ticker="CASE", cik="222", company_name="Case Test")
             session.add(stock)
 
-        result = get_stock_by_ticker("case")
+        result = lookup_stock("case")
         assert result is not None
         assert result.ticker == "CASE"
 
-    def test_get_stock_by_ticker_not_found(self, temp_db_path):
+    def test_lookup_stock_not_found(self, temp_db_path):
         """Should return None for nonexistent ticker."""
         init_db()
 
-        result = get_stock_by_ticker("NOTEXIST")
+        result = lookup_stock("NOTEXIST")
         assert result is None
 
-    def test_get_or_create_stock_creates(self, temp_db_path):
+    def test_ensure_stock_creates(self, temp_db_path):
         """Should create new stock if not exists."""
         init_db()
 
-        stock = get_or_create_stock("NEW", cik="333", company_name="New Corp")
+        stock = ensure_stock("NEW", cik="333", company_name="New Corp")
 
         assert stock is not None
         assert stock.ticker == "NEW"
 
         # Verify persisted
-        result = get_stock_by_ticker("NEW")
+        result = lookup_stock("NEW")
         assert result is not None
 
-    def test_get_or_create_stock_gets_existing(self, temp_db_path):
+    def test_ensure_stock_gets_existing(self, temp_db_path):
         """Should return existing stock."""
         init_db()
 
         # Create first
-        stock1 = get_or_create_stock("EXIST", cik="444", company_name="Existing")
+        stock1 = ensure_stock("EXIST", cik="444", company_name="Existing")
 
         # Should get same stock
-        stock2 = get_or_create_stock("EXIST", cik="555", company_name="Different")
+        stock2 = ensure_stock("EXIST", cik="555", company_name="Different")
 
         # Should have original data
-        result = get_stock_by_ticker("EXIST")
+        result = lookup_stock("EXIST")
         assert result.cik == "444"
         assert result.company_name == "Existing"
 

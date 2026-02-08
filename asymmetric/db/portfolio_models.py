@@ -41,7 +41,7 @@ class Transaction(SQLModel, table=True):
     total_proceeds: float = Field(default=0.0)  # For sells: abs(quantity) * price - fees
 
     # Cost basis tracking (populated for sells)
-    cost_basis_per_share: Optional[float] = None  # FIFO basis at time of sale
+    cost_basis_per_share: Optional[float] = None  # Weighted average basis at time of sale
     realized_gain: Optional[float] = None  # total_proceeds - (cost_basis_per_share * abs(quantity))
 
     # Notes
@@ -69,7 +69,7 @@ class Holding(SQLModel, table=True):
 
     # Position
     quantity: float = Field(default=0.0)  # Current shares held
-    cost_basis_total: float = Field(default=0.0)  # Total cost basis (FIFO)
+    cost_basis_total: float = Field(default=0.0)  # Total cost basis (weighted average)
     cost_basis_per_share: float = Field(default=0.0)  # Average cost per share
 
     # Tracking

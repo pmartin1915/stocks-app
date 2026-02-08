@@ -75,7 +75,7 @@ class TestServerConfig:
         assert server_config.transport == "stdio"
         # Port default comes from central config (ASYMMETRIC_MCP_PORT)
         assert server_config.port == app_config.mcp_default_port
-        assert server_config.host == "0.0.0.0"
+        assert server_config.host == "127.0.0.1"
         assert server_config.enable_ai_tools is True
         assert server_config.prefer_bulk_data is True
 

@@ -105,8 +105,7 @@ def decision_create(
                     )
             else:
                 # Create a default thesis if none provided
-                stock = get_or_create_stock(ticker)
-                stock = session.merge(stock)
+                stock = get_or_create_stock(session, ticker)
 
                 default_thesis = Thesis(
                     stock_id=stock.id,

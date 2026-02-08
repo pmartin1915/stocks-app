@@ -10,6 +10,11 @@ from rich.text import Text
 
 from asymmetric.cli.formatting import get_score_color, get_zone_color
 from asymmetric.core.portfolio.manager import PortfolioManager
+from asymmetric.core.portfolio.snapshot_service import (
+    get_last_snapshot_date,
+    should_take_snapshot,
+    take_daily_snapshot,
+)
 
 
 @click.group()
@@ -337,3 +342,72 @@ def portfolio_scores(ctx: click.Context, weighted: bool) -> None:
     console.print(f"[dim]Holdings with scores: {scores.holdings_with_scores}[/dim]")
     if scores.holdings_without_scores > 0:
         console.print(f"[dim yellow]Holdings missing scores: {scores.holdings_without_scores}[/dim yellow]")
+
+
+@portfolio.command("snapshot")
+@click.option("--auto", is_flag=True, help="Automatic mode (only take snapshot if conditions met)")
+@click.option("--force", is_flag=True, help="Force snapshot even if one already exists today")
+@click.pass_context
+def portfolio_snapshot(ctx: click.Context, auto: bool, force: bool) -> None:
+    """
+    Take a portfolio snapshot with current market prices.
+
+    Snapshots capture portfolio state over time for performance tracking.
+    In --auto mode, only creates snapshot if:
+    - No snapshot exists today
+    - After market close (4 PM ET / 9 PM UTC)
+    - Portfolio has holdings
+
+    \b
+    Examples:
+        asymmetric portfolio snapshot           # Manual snapshot
+        asymmetric portfolio snapshot --auto    # Automated (for cron jobs)
+        asymmetric portfolio snapshot --force   # Force even if exists today
+    """
+    console: Console = ctx.obj["console"]
+
+    # Check last snapshot
+    last_snapshot = get_last_snapshot_date()
+    if last_snapshot:
+        console.print(f"[dim]Last snapshot: {last_snapshot.strftime('%Y-%m-%d %H:%M UTC')}[/dim]")
+        console.print()
+
+    # Auto mode - check conditions
+    if auto:
+        if not force and not should_take_snapshot():
+            console.print("[yellow]Snapshot conditions not met (already exists today or before market close)[/yellow]")
+            console.print("[dim]Run without --auto flag to force manual snapshot[/dim]")
+            return
+
+    # Take snapshot
+    manager = PortfolioManager()
+
+    try:
+        snapshot = manager.take_snapshot(auto=auto)
+
+        console.print("[green]Portfolio snapshot created successfully[/green]")
+        console.print()
+        console.print(f"[cyan]Snapshot Date:[/cyan] {snapshot.snapshot_date.strftime('%Y-%m-%d %H:%M UTC')}")
+        console.print(f"[cyan]Market Value:[/cyan] ${snapshot.total_value:,.2f}")
+        console.print(f"[cyan]Cost Basis:[/cyan] ${snapshot.total_cost_basis:,.2f}")
+
+        # Show unrealized P&L with color
+        pnl_style = "green" if snapshot.unrealized_pnl >= 0 else "red"
+        console.print(
+            f"[cyan]Unrealized P&L:[/cyan] [{pnl_style}]${snapshot.unrealized_pnl:,.2f} "
+            f"({snapshot.unrealized_pnl_percent:+.2f}%)[/{pnl_style}]"
+        )
+
+        console.print(f"[cyan]Positions:[/cyan] {snapshot.position_count}")
+        console.print()
+
+        # Show weighted scores
+        if snapshot.weighted_fscore and snapshot.weighted_zscore:
+            console.print(f"[cyan]Weighted F-Score:[/cyan] {snapshot.weighted_fscore:.1f}/9")
+            console.print(f"[cyan]Weighted Z-Score:[/cyan] {snapshot.weighted_zscore:.2f}")
+
+        console.print()
+        console.print("[dim]View snapshot history in the dashboard Portfolio page[/dim]")
+
+    except Exception as e:
+        console.print(f"[red]Error creating snapshot: {e}[/red]")
