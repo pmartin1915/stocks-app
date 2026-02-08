@@ -39,3 +39,26 @@ def get_price_history(ticker: str, period: str = "1y") -> dict:
 def get_batch_price_data(tickers: tuple[str, ...]) -> dict[str, dict]:
     """Fetch batch prices with Streamlit caching (15 min TTL)."""
     return fetch_batch_prices(tickers)
+
+
+@st.cache_data(ttl=86400)  # Cache 24 hours (sectors rarely change)
+def get_sector_data(tickers: tuple[str, ...]) -> dict[str, dict[str, Optional[str]]]:
+    """Fetch sector and industry data for multiple tickers.
+
+    Uses fetch_price_data() per ticker since yf.download() doesn't return
+    sector info. Results cached for 24 hours since sectors rarely change.
+
+    Args:
+        tickers: Tuple of ticker symbols (tuple for hashability in cache).
+
+    Returns:
+        Dict mapping ticker -> {"sector": str|None, "industry": str|None}.
+    """
+    results = {}
+    for ticker in tickers:
+        data = fetch_price_data(ticker)
+        results[ticker] = {
+            "sector": data.get("sector"),
+            "industry": data.get("industry"),
+        }
+    return results

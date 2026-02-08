@@ -94,13 +94,62 @@ def render_holdings_tab(
         },
     )
 
-    # Allocation pie chart
+    # Allocation charts
     st.subheader("Allocation")
+
+    alloc_col1, alloc_col2 = st.columns(2)
+
+    with alloc_col1:
+        fig = px.pie(
+            df,
+            values="Market Value",
+            names="Ticker",
+            title="By Position",
+        )
+        fig.update_traces(textposition="inside", textinfo="percent+label")
+        fig.update_layout(**get_plotly_theme())
+        st.plotly_chart(fig, use_container_width=True)
+
+    with alloc_col2:
+        _render_sector_chart(holdings)
+
+
+def _render_sector_chart(holdings: list) -> None:
+    """Render sector allocation pie chart using yfinance sector data.
+
+    Args:
+        holdings: List of HoldingDetail objects with market_value.
+    """
+    from dashboard.utils.price_data import get_sector_data
+
+    tickers = tuple(h.ticker for h in holdings)
+    try:
+        sector_data = get_sector_data(tickers)
+    except Exception:
+        st.caption("Sector data unavailable")
+        return
+
+    # Aggregate market value by sector
+    sector_values: dict[str, float] = {}
+    for h in holdings:
+        sector = (sector_data.get(h.ticker, {}) or {}).get("sector") or "Unknown"
+        value = h.market_value if h.market_value else h.cost_basis_total
+        sector_values[sector] = sector_values.get(sector, 0) + value
+
+    if not sector_values or all(v == 0 for v in sector_values.values()):
+        st.caption("No sector data available")
+        return
+
+    sector_df = pd.DataFrame([
+        {"Sector": sector, "Market Value": value}
+        for sector, value in sorted(sector_values.items(), key=lambda x: x[1], reverse=True)
+    ])
+
     fig = px.pie(
-        df,
+        sector_df,
         values="Market Value",
-        names="Ticker",
-        title="Portfolio Allocation by Market Value",
+        names="Sector",
+        title="By Sector",
     )
     fig.update_traces(textposition="inside", textinfo="percent+label")
     fig.update_layout(**get_plotly_theme())
