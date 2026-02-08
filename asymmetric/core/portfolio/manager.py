@@ -773,7 +773,7 @@ class PortfolioManager:
                 weighted_zscore=weighted.weighted_zscore,
             )
             session.add(snapshot)
-            session.commit()
+            session.flush()
             session.refresh(snapshot)
             session.expunge(snapshot)
             return snapshot

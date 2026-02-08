@@ -438,7 +438,7 @@ def decision_update(
                 updates.append("rationale updated")
 
             session.add(d)
-            session.commit()
+            session.flush()
 
             # Get ticker for next steps hint
             ticker = d.thesis.stock.ticker if d.thesis and d.thesis.stock else None
@@ -500,7 +500,7 @@ def decision_delete(ctx: click.Context, decision_id: int, yes: bool) -> None:
                     raise SystemExit(0)
 
             session.delete(d)
-            session.commit()
+            session.flush()
 
             console.print(f"[green]+[/green] Decision #{decision_id} deleted")
 

@@ -128,7 +128,7 @@ def cleanup_old_snapshots(keep_days: int = 365) -> int:
         for snapshot in old_snapshots:
             session.delete(snapshot)
 
-        session.commit()
+        session.flush()
 
         if count > 0:
             logger.info(f"Deleted {count} snapshots older than {keep_days} days")

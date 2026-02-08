@@ -588,7 +588,7 @@ def thesis_update(
 
             t.updated_at = datetime.now(timezone.utc)
             session.add(t)
-            session.commit()
+            session.flush()
 
             ticker = t.stock.ticker if t.stock else "Unknown"
             console.print(f"[green]+[/green] Thesis #{thesis_id} ({ticker}) updated:")
@@ -655,7 +655,7 @@ def thesis_delete(ctx: click.Context, thesis_id: int, yes: bool) -> None:
                     session.delete(d)
 
             session.delete(t)
-            session.commit()
+            session.flush()
 
             console.print(f"[green]+[/green] Thesis #{thesis_id} deleted")
             if decision_count > 0:

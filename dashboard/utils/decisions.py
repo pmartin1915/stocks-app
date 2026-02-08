@@ -378,9 +378,8 @@ def update_thesis_status(thesis_id: int, status: str) -> bool:
         thesis.updated_at = datetime.now(UTC)
 
         try:
-            session.commit()
+            session.flush()
         except (SQLAlchemyError, IntegrityError) as e:
-            session.rollback()
             raise ValueError(f"Failed to update thesis status: {e}") from e
 
         return True
@@ -441,9 +440,8 @@ def update_thesis(
         thesis.updated_at = datetime.now(UTC)
 
         try:
-            session.commit()
+            session.flush()
         except (SQLAlchemyError, IntegrityError) as e:
-            session.rollback()
             raise ValueError(f"Failed to update thesis: {e}") from e
 
         return True
@@ -579,9 +577,8 @@ def update_decision_outcome(
 
         session.add(decision)
         try:
-            session.commit()
+            session.flush()
         except (SQLAlchemyError, IntegrityError) as e:
-            session.rollback()
             raise ValueError(f"Failed to update decision outcome: {e}") from e
         return True
 
