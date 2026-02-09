@@ -282,7 +282,7 @@ class AlertChecker:
             )
 
             session.add(alert)
-            session.commit()
+            session.flush()
             session.refresh(alert)
             return alert
 
@@ -385,7 +385,7 @@ class AlertChecker:
             history.acknowledged = True
             history.acknowledged_at = datetime.now(timezone.utc)
             history.acknowledged_by = acknowledged_by
-            session.commit()
+            session.flush()
         return True
 
     def remove_alert(self, alert_id: int) -> bool:
@@ -410,7 +410,7 @@ class AlertChecker:
             for h in histories:
                 session.delete(h)
             session.delete(alert)
-            session.commit()
+            session.flush()
         return True
 
     def get_triggered_alerts(self) -> list[tuple[AlertHistory, str, str]]:

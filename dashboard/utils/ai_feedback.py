@@ -10,9 +10,9 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 try:
-    from sqlmodel import Session, select
+    from sqlmodel import select
 
-    from asymmetric.db.database import get_engine
+    from asymmetric.db.database import get_session
     from asymmetric.db.models import AIFeedback
 
     DB_AVAILABLE = True
@@ -47,8 +47,7 @@ def record_ai_feedback(
         return False
 
     try:
-        engine = get_engine()
-        with Session(engine) as session:
+        with get_session() as session:
             # Check if feedback already exists for this content
             existing = session.exec(
                 select(AIFeedback).where(AIFeedback.content_hash == content_hash)
@@ -73,7 +72,7 @@ def record_ai_feedback(
                 )
                 session.add(feedback)
 
-            session.commit()
+            session.flush()
             return True
 
     except Exception as e:
@@ -94,8 +93,7 @@ def get_feedback_stats(model: Optional[str] = None) -> dict:
         return {"error": "Database not available"}
 
     try:
-        engine = get_engine()
-        with Session(engine) as session:
+        with get_session() as session:
             query = select(AIFeedback)
             if model:
                 query = query.where(AIFeedback.model == model)
@@ -132,8 +130,7 @@ def get_recent_feedback(limit: int = 20) -> list[dict]:
         return []
 
     try:
-        engine = get_engine()
-        with Session(engine) as session:
+        with get_session() as session:
             results = session.exec(
                 select(AIFeedback)
                 .order_by(AIFeedback.feedback_at.desc())

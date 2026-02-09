@@ -6,6 +6,8 @@ from DuckDB bulk data (zero API calls during screening).
 Enhanced with price data from Yahoo Finance.
 """
 
+import math
+
 import pandas as pd
 import streamlit as st
 
@@ -145,21 +147,31 @@ with col5:
     )
 
 with col6:
-    limit = st.selectbox(
-        "Results Limit",
-        options=[25, 50, 100, 250, 500],
+    page_size = st.selectbox(
+        "Per page",
+        options=[25, 50, 100],
         index=1,
     )
 
 st.divider()
 
-# Fetch results
+# Pagination state
+if "screener_page" not in st.session_state:
+    st.session_state.screener_page = 0
+
+# Reset page when filters change
+filter_key = f"{piotroski_min}_{altman_min}_{altman_zone}_{sort_by}_{sort_order}_{page_size}"
+if st.session_state.get("screener_filter_key") != filter_key:
+    st.session_state.screener_filter_key = filter_key
+    st.session_state.screener_page = 0
+
+# Fetch all matching results
 try:
     results = get_screener_results(
         piotroski_min=piotroski_min if piotroski_min > 0 else None,
         altman_min=altman_min if altman_min > -10 else None,
         altman_zone=altman_zone_filter,
-        limit=limit,
+        limit=500,
         sort_by=sort_by,
         sort_order=sort_order,
     )
@@ -168,15 +180,26 @@ except Exception as e:
     st.info("Try running `asymmetric db refresh` to ensure data is available.")
     results = []
 
-# Results header with count
+# Pagination math
+total_results = len(results)
+total_pages = max(1, math.ceil(total_results / page_size))
+current_page = min(st.session_state.screener_page, total_pages - 1)
+start_idx = current_page * page_size
+end_idx = min(start_idx + page_size, total_results)
+page_results = results[start_idx:end_idx]
+
+# Results header with page info
 col1, col2 = st.columns([3, 1])
 with col1:
-    st.subheader(f"Results ({len(results)} stocks)")
+    if total_pages > 1:
+        st.subheader(f"Results ({total_results} stocks, page {current_page + 1} of {total_pages})")
+    else:
+        st.subheader(f"Results ({total_results} stocks)")
 with col2:
-    # Export button
+    # Export all results as CSV
     if results:
-        df = pd.DataFrame(results)
-        csv = df.to_csv(index=False)
+        df_export = pd.DataFrame(results)
+        csv = df_export.to_csv(index=False)
         st.download_button(
             "Export CSV",
             csv,
@@ -184,21 +207,35 @@ with col2:
             mime="text/csv",
         )
 
+# Page navigation
+if total_pages > 1:
+    nav1, nav2, nav3 = st.columns([1, 2, 1])
+    with nav1:
+        if st.button("Previous", disabled=current_page == 0, use_container_width=True):
+            st.session_state.screener_page = current_page - 1
+            st.rerun()
+    with nav2:
+        st.markdown(
+            f"<div style='text-align:center;padding:0.5rem 0;'>Showing {start_idx + 1}–{end_idx} of {total_results}</div>",
+            unsafe_allow_html=True,
+        )
+    with nav3:
+        if st.button("Next", disabled=current_page >= total_pages - 1, use_container_width=True):
+            st.session_state.screener_page = current_page + 1
+            st.rerun()
+
 if not results:
     st.info("No stocks match the current filters. Try adjusting the criteria.")
 else:
-    # Convert to DataFrame for display
-    df = pd.DataFrame(results)
+    # Build DataFrame from current page only
+    df = pd.DataFrame(page_results)
 
     # Get current watchlist for comparison
     watchlist = set(get_stocks())
     df["on_watchlist"] = df["ticker"].apply(lambda x: "✓" if x in watchlist else "")
 
-    # Add price data using batch fetching (much faster than individual calls)
-    price_limit = min(len(df), 50)  # Fetch prices for first 50 results
-    tickers_to_fetch = tuple(df["ticker"].head(price_limit).tolist())
-
-    # Batch fetch all prices in one request
+    # Fetch prices for current page's tickers only
+    tickers_to_fetch = tuple(df["ticker"].tolist())
     batch_prices = get_batch_price_data(tickers_to_fetch) if tickers_to_fetch else {}
 
     # Extract price data into columns
@@ -206,13 +243,12 @@ else:
     changes = []
     market_caps = []
 
-    for i, ticker in enumerate(df["ticker"]):
-        if i < price_limit and ticker in batch_prices:
+    for ticker in df["ticker"]:
+        if ticker in batch_prices:
             price_data = batch_prices[ticker]
             if "error" not in price_data:
                 prices.append(price_data.get("price"))
                 changes.append(price_data.get("change_pct"))
-                # Note: batch fetch doesn't include market_cap, show "—"
                 market_caps.append("—")
             else:
                 prices.append(None)
@@ -286,10 +322,6 @@ else:
             "Watch": st.column_config.TextColumn("Watch", width="small"),
         },
     )
-
-    # Note about price data
-    if len(df) > price_limit:
-        st.caption(f"💡 Price data shown for first {price_limit} results only (batch fetched for performance).")
 
     # Sector Heatmap visualization
     st.divider()

@@ -4,16 +4,15 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from asymmetric.core.portfolio import PortfolioManager
 from dashboard.theme import get_plotly_theme
+from dashboard.utils.portfolio_cache import get_cached_realized_pnl
 
 
-def render_performance_tab(holdings: list, manager: PortfolioManager) -> None:
+def render_performance_tab(holdings: list) -> None:
     """Render the Performance Analysis tab.
 
     Args:
         holdings: List of HoldingDetail objects with market data.
-        manager: PortfolioManager instance.
     """
     st.subheader("Performance Analysis")
     st.caption("Winners, losers, and performance metrics")
@@ -70,7 +69,7 @@ def render_performance_tab(holdings: list, manager: PortfolioManager) -> None:
 
         chart_data = [{"Ticker": h.ticker, "P&L": h.unrealized_pnl, "Type": "Unrealized"} for h in holdings_with_prices]
 
-        realized_by_ticker = manager.get_realized_pnl_by_ticker()
+        realized_by_ticker = get_cached_realized_pnl()
         for h in holdings_with_prices:
             realized_for_ticker = realized_by_ticker.get(h.ticker, 0.0)
             if realized_for_ticker != 0:

@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from asymmetric.core.portfolio import PortfolioManager
+from dashboard.utils.portfolio_cache import clear_portfolio_cache
 
 
 def render_add_transaction_tab(manager: PortfolioManager) -> None:
@@ -62,6 +63,7 @@ def _render_buy_confirmation(manager: PortfolioManager) -> None:
                         notes=pending["notes"] if pending["notes"] else None,
                     )
                     st.session_state.pending_buy = None
+                    clear_portfolio_cache()
                     st.success(f"Recorded purchase of {pending['quantity']} shares of {pending['ticker']}")
                     st.rerun()
                 except ValueError as e:
@@ -107,6 +109,7 @@ def _render_sell_confirmation(manager: PortfolioManager) -> None:
                         notes=pending["notes"] if pending["notes"] else None,
                     )
                     st.session_state.pending_sell = None
+                    clear_portfolio_cache()
                     gain_text = f"${transaction.realized_gain:,.2f}" if transaction.realized_gain else "N/A"
                     st.success(f"Recorded sale of {pending['quantity']} shares of {pending['ticker']}. Realized gain: {gain_text}")
                     st.rerun()

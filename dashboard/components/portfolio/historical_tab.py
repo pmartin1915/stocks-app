@@ -1,10 +1,7 @@
 """Historical tab — snapshots, performance stats, and time-series charts."""
 
-from datetime import datetime, timedelta
-
 import streamlit as st
 
-from asymmetric.core.portfolio import PortfolioManager
 from dashboard.utils.performance_charts import (
     create_portfolio_value_chart,
     create_pnl_attribution_chart,
@@ -12,14 +9,11 @@ from dashboard.utils.performance_charts import (
     create_portfolio_health_chart,
     create_position_count_chart,
 )
+from dashboard.utils.portfolio_cache import get_cached_snapshots, get_cached_performance_stats
 
 
-def render_historical_tab(manager: PortfolioManager) -> None:
-    """Render the Historical Performance tab.
-
-    Args:
-        manager: PortfolioManager instance.
-    """
+def render_historical_tab() -> None:
+    """Render the Historical Performance tab."""
     st.subheader("Historical Performance")
     st.caption("Portfolio value, P&L, and health metrics over time")
 
@@ -35,25 +29,12 @@ def render_historical_tab(manager: PortfolioManager) -> None:
 
     with col3:
         if st.button("Refresh Data", key="refresh_snapshots"):
+            get_cached_snapshots.clear()
+            get_cached_performance_stats.clear()
             st.rerun()
 
-    # Calculate date range
-    now = datetime.now()
-    start_date = None
-
-    if time_range == "7D":
-        start_date = (now - timedelta(days=7)).replace(tzinfo=None)
-    elif time_range == "30D":
-        start_date = (now - timedelta(days=30)).replace(tzinfo=None)
-    elif time_range == "90D":
-        start_date = (now - timedelta(days=90)).replace(tzinfo=None)
-    elif time_range == "YTD":
-        start_date = datetime(now.year, 1, 1)
-    elif time_range == "1Y":
-        start_date = (now - timedelta(days=365)).replace(tzinfo=None)
-
     try:
-        snapshots = manager.get_snapshots(start_date=start_date)
+        snapshots = get_cached_snapshots(time_range)
 
         if snapshots:
             first_date = snapshots[0].snapshot_date
@@ -71,7 +52,7 @@ def render_historical_tab(manager: PortfolioManager) -> None:
             else:
                 st.info("Create your first snapshot to start tracking performance over time.")
         else:
-            _render_performance_stats(manager, snapshots)
+            _render_performance_stats(time_range)
             _render_charts(snapshots)
 
     except Exception as e:
@@ -79,9 +60,9 @@ def render_historical_tab(manager: PortfolioManager) -> None:
         st.info("Try refreshing the page or check your database connection.")
 
 
-def _render_performance_stats(manager: PortfolioManager, snapshots: list) -> None:
+def _render_performance_stats(time_range: str) -> None:
     """Render performance statistics cards."""
-    stats = manager.get_performance_stats(snapshots)
+    stats = get_cached_performance_stats(time_range)
     if not stats:
         return
 

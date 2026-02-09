@@ -446,8 +446,8 @@ class TrendAnalyzer:
                 )
                 session.add(result)
 
-            # Commit, refresh, and expunge to prevent DetachedInstanceError
-            session.commit()
+            # Flush, refresh, and expunge to prevent DetachedInstanceError
+            session.flush()
             session.refresh(result)
             session.expunge(result)
             return result

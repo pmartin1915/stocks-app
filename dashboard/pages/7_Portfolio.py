@@ -16,6 +16,7 @@ from dashboard.components.portfolio import (
     render_transaction_history_tab,
     render_health_tab,
 )
+from dashboard.utils.portfolio_cache import get_cached_portfolio_data
 from dashboard.utils.session_state import init_page_state
 from dashboard.utils.sidebar import render_full_sidebar
 
@@ -31,15 +32,9 @@ st.caption("Track holdings, transactions, and portfolio health")
 # Initialize manager
 manager = PortfolioManager()
 
-# Fetch prices once and share across all calls to avoid redundant yfinance API requests
+# Fetch portfolio data (cached 60s — avoids redundant DB + yfinance calls on tab switches)
 try:
-    _holdings_no_prices = manager.get_holdings(include_market_data=False)
-    _tickers = [h.ticker for h in _holdings_no_prices]
-    _prices = manager.refresh_market_prices(_tickers) if _tickers else {}
-
-    summary = manager.get_portfolio_summary(market_prices=_prices)
-    holdings = manager.get_holdings(market_prices=_prices)
-    weighted_scores = manager.get_weighted_scores(holdings=holdings)
+    summary, holdings, weighted_scores, _prices = get_cached_portfolio_data()
 except Exception as e:
     st.error(f"Error loading portfolio data: {e}")
     st.info("Please check your database connection and try refreshing the page.")
@@ -84,10 +79,10 @@ with tab_holdings:
     render_holdings_tab(holdings, manager, _prices)
 
 with tab_performance:
-    render_performance_tab(holdings, manager)
+    render_performance_tab(holdings)
 
 with tab_historical:
-    render_historical_tab(manager)
+    render_historical_tab()
 
 with tab_add:
     render_add_transaction_tab(manager)
