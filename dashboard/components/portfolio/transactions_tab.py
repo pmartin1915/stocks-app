@@ -226,11 +226,7 @@ def render_transaction_history_tab(manager: PortfolioManager) -> None:
     )
 
     # Export with CSV injection protection
-    export_df = df.copy()
-    for col in ["Notes", "Ticker", "Type"]:
-        if col in export_df.columns:
-            export_df[col] = export_df[col].apply(
-                lambda v: "'" + str(v) if isinstance(v, str) and v and v[0] in "=+\\-@" else v
-            )
+    from dashboard.utils.csv_export import sanitize_csv_dataframe
+    export_df = sanitize_csv_dataframe(df)
     csv = export_df.to_csv(index=False)
     st.download_button("Export to CSV", csv, "transactions.csv", "text/csv")

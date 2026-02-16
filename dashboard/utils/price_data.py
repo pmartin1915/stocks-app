@@ -17,6 +17,7 @@ from asymmetric.core.data.market_data import (  # noqa: F401
     format_percentage,
 )
 from asymmetric.core.data.market_data import (
+    fetch_batch_price_history,
     fetch_batch_prices,
     fetch_price_data,
     fetch_price_history,
@@ -33,6 +34,14 @@ def get_price_data(ticker: str) -> dict:
 def get_price_history(ticker: str, period: str = "1y") -> dict:
     """Fetch price history with Streamlit caching (1 hour TTL)."""
     return fetch_price_history(ticker, period)
+
+
+@st.cache_data(ttl=3600)  # Cache 1 hour
+def get_batch_price_history(
+    tickers: tuple[str, ...], period: str = "1y"
+) -> dict[str, dict]:
+    """Fetch batch price histories with Streamlit caching (1 hour TTL)."""
+    return fetch_batch_price_history(tickers, period)
 
 
 @st.cache_data(ttl=900)  # Cache 15 minutes

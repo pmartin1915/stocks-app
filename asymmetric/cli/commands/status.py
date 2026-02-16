@@ -1,6 +1,9 @@
 """Status command showing current Asymmetric state."""
 
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -64,7 +67,7 @@ def _get_portfolio_count() -> int:
             stmt = select(Holding).where(Holding.quantity > 0)
             holdings = session.exec(stmt).all()
             return len(holdings)
-    except Exception:
+    except Exception:  # Intentional: status helpers should not crash on missing data
         return 0
 
 
@@ -80,7 +83,7 @@ def _get_alerts_count() -> int:
             stmt = select(Alert).where(Alert.active == True)  # noqa: E712
             alerts = session.exec(stmt).all()
             return len(alerts)
-    except Exception:
+    except Exception:  # Intentional: status helpers should not crash on missing data
         return 0
 
 
@@ -99,7 +102,7 @@ def _get_recent_decisions_count() -> int:
             stmt = select(Decision).where(Decision.created_at >= cutoff)
             decisions = session.exec(stmt).all()
             return len(decisions)
-    except Exception:
+    except Exception:  # Intentional: status helpers should not crash on missing data
         return 0
 
 
@@ -115,7 +118,7 @@ def _get_theses_count() -> int:
             stmt = select(Thesis)
             theses = session.exec(stmt).all()
             return len(theses)
-    except Exception:
+    except Exception:  # Intentional: status helpers should not crash on missing data
         return 0
 
 

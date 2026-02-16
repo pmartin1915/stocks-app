@@ -177,6 +177,9 @@ class AltmanResult:
     # Metadata
     missing_inputs: list[str] = field(default_factory=list)
     components_calculated: int = 0
+    components_required: int = 0  # 5 for manufacturing, 4 for non-manufacturing
+    used_book_equity_fallback: bool = False  # True when manufacturing formula used book equity instead of market cap
+    is_approximate: bool = False  # True when score may be unreliable (missing components or fallback data)
 
     @property
     def is_safe(self) -> bool:
@@ -278,9 +281,13 @@ class AltmanScorer:
         # Calculate X4: Equity / Total Liabilities
         x4 = self._calc_equity_leverage_ratio(inputs)
         x4_contrib = None
+        used_book_equity_fallback = False
         if x4 is not None:
             x4_contrib = coefficients["x4"] * x4
             components_calculated += 1
+            # Detect if manufacturing formula fell back to book equity
+            if is_manufacturing and inputs.market_cap is None and inputs.book_equity is not None:
+                used_book_equity_fallback = True
         else:
             if is_manufacturing:
                 missing_inputs.append("equity_leverage_ratio (market_cap, total_liabilities)")
@@ -310,19 +317,40 @@ class AltmanScorer:
         # Calculate Z-Score from available contributions
         contributions = [c for c in [x1_contrib, x2_contrib, x3_contrib, x4_contrib, x5_contrib] if c is not None]
 
+        # Determine if result is approximate (missing components or fallback data)
+        is_approximate = (
+            used_book_equity_fallback
+            or components_calculated < required_components
+        )
+
         if not contributions:
             # Can't calculate anything
             z_score = 0.0
             zone = "Distress"
             interpretation = "Insufficient data - Unable to calculate Z-Score"
+            is_approximate = True
             logger.warning("No Z-Score components could be calculated")
         else:
             z_score = sum(contributions)
             zone = self._determine_zone(z_score, is_manufacturing)
-            interpretation = self._get_interpretation(zone)
+
+            if is_approximate:
+                interpretation = self._get_interpretation(zone)
+                qualifiers = []
+                if components_calculated < required_components:
+                    qualifiers.append(
+                        f"based on {components_calculated}/{required_components} components"
+                    )
+                if used_book_equity_fallback:
+                    qualifiers.append("used book equity (market cap unavailable)")
+                interpretation += f" (approximate: {'; '.join(qualifiers)})"
+            else:
+                interpretation = self._get_interpretation(zone)
+
             logger.info(
                 f"Z-Score calculated: {z_score:.2f} ({zone}) using "
                 f"{components_calculated}/{required_components} components"
+                f"{' [approximate]' if is_approximate else ''}"
             )
 
         return AltmanResult(
@@ -342,6 +370,9 @@ class AltmanScorer:
             x5_contribution=x5_contrib,
             missing_inputs=missing_inputs,
             components_calculated=components_calculated,
+            components_required=required_components,
+            used_book_equity_fallback=used_book_equity_fallback,
+            is_approximate=is_approximate,
         )
 
     def calculate_from_dict(
@@ -462,7 +493,10 @@ class AltmanScorer:
             if equity is None:
                 equity = inputs.book_equity
                 if equity is not None:
-                    logger.info("Market cap not available, using book equity for X4")
+                    logger.warning(
+                        "Market cap not available, using book equity for X4. "
+                        "This may significantly underestimate the Z-Score for healthy companies."
+                    )
         else:
             equity = inputs.book_equity
 

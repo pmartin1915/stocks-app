@@ -545,6 +545,7 @@ class TestAltmanScorerCalculation:
         assert result.x1_working_capital_ratio is not None
         assert result.x2_retained_earnings_ratio is None
         assert len(result.missing_inputs) > 0
+        assert result.is_approximate is True
 
     def test_require_all_components_raises(self, scorer):
         """Test that require_all_components raises on missing data."""
@@ -863,3 +864,78 @@ class TestPracticalDeviations:
         # Should use book_equity, not market_cap
         expected = 40_000_000 / 40_000_000  # = 1.0
         assert x4 == pytest.approx(expected)
+
+    def test_partial_data_is_approximate(self, scorer):
+        """Partial component calculation should be flagged as approximate."""
+        data = {
+            "total_assets": 100_000,
+            "current_assets": 40_000,
+            "current_liabilities": 20_000,
+        }
+        result = scorer.calculate_from_dict(data, require_all_components=False)
+        assert result.is_approximate is True
+        assert result.components_calculated < result.components_required
+        assert "approximate" in result.interpretation.lower()
+
+    def test_book_equity_fallback_is_approximate(self, scorer):
+        """Manufacturing formula with book equity fallback should be approximate."""
+        inputs = AltmanInputs(
+            total_assets=100_000_000,
+            current_assets=40_000_000,
+            current_liabilities=20_000_000,
+            total_liabilities=30_000_000,
+            retained_earnings=50_000_000,
+            revenue=80_000_000,
+            ebit=15_000_000,
+            market_cap=None,
+            book_equity=70_000_000,
+            is_manufacturing=True,
+        )
+        result = scorer.calculate(inputs, require_all_components=False)
+        assert result.is_approximate is True
+        assert result.used_book_equity_fallback is True
+        assert "book equity" in result.interpretation.lower()
+
+    def test_full_data_is_not_approximate(self, scorer):
+        """Full data manufacturing calculation should not be approximate."""
+        inputs = AltmanInputs(
+            total_assets=100_000_000,
+            current_assets=40_000_000,
+            current_liabilities=20_000_000,
+            total_liabilities=30_000_000,
+            retained_earnings=50_000_000,
+            revenue=80_000_000,
+            ebit=15_000_000,
+            market_cap=200_000_000,
+        )
+        result = scorer.calculate(inputs)
+        assert result.is_approximate is False
+        assert result.components_calculated == result.components_required == 5
+
+    def test_components_required_manufacturing_vs_non(self, scorer):
+        """Manufacturing requires 5 components, non-manufacturing requires 4."""
+        mfg_inputs = AltmanInputs(
+            total_assets=100_000_000,
+            current_assets=40_000_000,
+            current_liabilities=20_000_000,
+            total_liabilities=30_000_000,
+            retained_earnings=50_000_000,
+            revenue=80_000_000,
+            ebit=15_000_000,
+            market_cap=200_000_000,
+            is_manufacturing=True,
+        )
+        non_mfg_inputs = AltmanInputs(
+            total_assets=80_000_000,
+            current_assets=35_000_000,
+            current_liabilities=15_000_000,
+            total_liabilities=40_000_000,
+            retained_earnings=30_000_000,
+            ebit=10_000_000,
+            book_equity=40_000_000,
+            is_manufacturing=False,
+        )
+        mfg_result = scorer.calculate(mfg_inputs)
+        non_mfg_result = scorer.calculate(non_mfg_inputs)
+        assert mfg_result.components_required == 5
+        assert non_mfg_result.components_required == 4

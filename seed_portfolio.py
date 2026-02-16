@@ -82,7 +82,7 @@ def seed_portfolio():
         snapshot_date = base_date + timedelta(days=day)
         progress = day / 29.0
         base_value = total_cost + (total_current - total_cost) * progress
-        noise = random.gauss(0, base_value * 0.008)
+        noise = random.gauss(0, base_value * 0.002)
         daily_value = max(base_value + noise, total_cost * 0.9)
 
         unrealized = daily_value - total_cost

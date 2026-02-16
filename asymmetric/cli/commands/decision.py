@@ -1,12 +1,15 @@
 """Decision tracking commands for investment actions."""
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from sqlmodel import select
 
 import click
+
+logger = logging.getLogger(__name__)
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -157,7 +160,8 @@ def decision_create(
 
     except Exception as e:
         if not isinstance(e, SystemExit):
-            console.print(f"[red]Error:[/red] {e}")
+            logger.exception("Unexpected error in decision command")
+            console.print(f"[red]Unexpected error:[/red] {e}")
             raise SystemExit(1)
         raise
 
@@ -227,7 +231,8 @@ def decision_list(
                 _display_decision_list(console, decisions)
 
     except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
+        logger.exception("Unexpected error in decision command")
+        console.print(f"[red]Unexpected error:[/red] {e}")
         raise SystemExit(1)
 
 
@@ -319,7 +324,8 @@ def decision_view(ctx: click.Context, decision_id: int, as_json: bool) -> None:
 
     except Exception as e:
         if not isinstance(e, SystemExit):
-            console.print(f"[red]Error:[/red] {e}")
+            logger.exception("Unexpected error in decision command")
+            console.print(f"[red]Unexpected error:[/red] {e}")
             raise SystemExit(1)
         raise
 
@@ -456,7 +462,8 @@ def decision_update(
 
     except Exception as e:
         if not isinstance(e, SystemExit):
-            console.print(f"[red]Error:[/red] {e}")
+            logger.exception("Unexpected error in decision command")
+            console.print(f"[red]Unexpected error:[/red] {e}")
             raise SystemExit(1)
         raise
 
@@ -514,6 +521,7 @@ def decision_delete(ctx: click.Context, decision_id: int, yes: bool) -> None:
 
     except Exception as e:
         if not isinstance(e, SystemExit):
-            console.print(f"[red]Error:[/red] {e}")
+            logger.exception("Unexpected error in decision command")
+            console.print(f"[red]Unexpected error:[/red] {e}")
             raise SystemExit(1)
         raise

@@ -7,7 +7,7 @@ import plotly.express as px
 import streamlit as st
 
 from asymmetric.core.portfolio import PortfolioManager
-from dashboard.theme import get_plotly_theme
+from dashboard.theme import get_plotly_theme, get_semantic_color
 
 
 def render_holdings_tab(
@@ -52,7 +52,8 @@ def render_holdings_tab(
     holdings_data = []
     for h in holdings:
         if h.unrealized_pnl is not None:
-            pnl_text = f"${h.unrealized_pnl:,.2f} ({h.unrealized_pnl_percent:+.1f}%)"
+            arrow = "▲" if h.unrealized_pnl > 0 else "▼" if h.unrealized_pnl < 0 else "—"
+            pnl_text = f"{arrow} ${h.unrealized_pnl:,.2f} ({h.unrealized_pnl_percent:+.1f}%)"
         else:
             pnl_text = "N/A"
 
@@ -73,10 +74,13 @@ def render_holdings_tab(
 
     df = pd.DataFrame(holdings_data)
 
-    # Style P&L coloring based on raw numeric value
+    # Style P&L coloring based on raw numeric value (theme-aware)
+    green = get_semantic_color("green")
+    red = get_semantic_color("red")
+
     def style_pnl(row):
         pct = row["_pnl_pct"]
-        color = "green" if pct > 0 else "red" if pct < 0 else ""
+        color = green if pct > 0 else red if pct < 0 else ""
         return [f"color: {color}" if col == "Unrealized P&L" and color else "" for col in row.index]
 
     styled_df = df.style.apply(style_pnl, axis=1)

@@ -1,6 +1,9 @@
 """Portfolio management commands for transaction and holdings tracking."""
 
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 import click
 from rich.console import Console
@@ -410,4 +413,5 @@ def portfolio_snapshot(ctx: click.Context, auto: bool, force: bool) -> None:
         console.print("[dim]View snapshot history in the dashboard Portfolio page[/dim]")
 
     except Exception as e:
-        console.print(f"[red]Error creating snapshot: {e}[/red]")
+        logger.exception("Unexpected error creating snapshot")
+        console.print(f"[red]Unexpected error creating snapshot: {e}[/red]")

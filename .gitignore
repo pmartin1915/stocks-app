@@ -53,6 +53,13 @@ dmypy.json
 # OS
 .DS_Store
 Thumbs.db
+nul
+
+# Streamlit cache
+.streamlit/cache/
+
+# Exported data (may contain personal financial info)
+Portfolio_Positions_*.csv
 
 # Poetry
 poetry.lock

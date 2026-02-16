@@ -1,6 +1,10 @@
 """MCP server management commands."""
 
+import logging
+
 import click
+
+logger = logging.getLogger(__name__)
 from rich.console import Console
 
 from asymmetric.config import config
@@ -140,7 +144,8 @@ def mcp_start(
         raise SystemExit(1)
 
     except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
+        logger.exception("Unexpected error in MCP command")
+        console.print(f"[red]Unexpected error:[/red] {e}")
         raise SystemExit(1)
 
 

@@ -146,8 +146,8 @@ def test_get_performance_stats_returns(manager_with_snapshots):
 
     assert stats is not None
 
-    first_value = snapshots[0].total_value
-    latest_value = snapshots[-1].total_value
+    first_value = float(snapshots[0].total_value)
+    latest_value = float(snapshots[-1].total_value)
 
     # Verify total return calculation
     expected_return = ((latest_value - first_value) / first_value) * 100

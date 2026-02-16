@@ -36,11 +36,11 @@ def validate_ticker(ticker: str, allow_empty: bool = False) -> tuple[bool, str]:
             return True, ""
         return False, "Please enter a ticker symbol"
 
-    # Ticker format: 1-5 uppercase letters, optionally followed by hyphen and letter
-    # Examples: AAPL, MSFT, BRK-B, BRK-A
-    # Note: Input should be uppercased before calling this function
-    if not re.match(r"^[A-Z]{1,5}(?:-[A-Z])?$", ticker):
-        return False, f"Invalid ticker format: {ticker}. Expected format like AAPL or BRK-B."
+    # Ticker format: 1-10 uppercase alphanumeric chars, dots, hyphens
+    # Examples: AAPL, MSFT, BRK-B, BRK.A, BF.B
+    # Matches manager._validate_ticker() and CLI TICKER_PATTERN
+    if not re.match(r"^[A-Z0-9.\-]{1,10}$", ticker):
+        return False, f"Invalid ticker format: {ticker}. Expected format like AAPL, BRK-B, or BRK.A."
 
     return True, ""
 

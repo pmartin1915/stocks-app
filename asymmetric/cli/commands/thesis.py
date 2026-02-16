@@ -1,6 +1,7 @@
 """Thesis management commands for investment decision tracking."""
 
 import json
+import logging
 from datetime import datetime, timezone
 
 import click
@@ -12,6 +13,8 @@ from rich.table import Table
 
 from asymmetric.cli.formatting import print_next_steps
 from asymmetric.core.ai.exceptions import AIError, GeminiConfigError
+
+logger = logging.getLogger(__name__)
 
 
 @click.group()
@@ -100,7 +103,8 @@ def thesis_create(
         raise SystemExit(1)
 
     except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
+        logger.exception("Unexpected error in thesis command")
+        console.print(f"[red]Unexpected error:[/red] {e}")
         raise SystemExit(1)
 
 
@@ -318,7 +322,8 @@ def thesis_list(ctx: click.Context, status: str, as_json: bool) -> None:
                 _display_thesis_list(console, theses)
 
     except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
+        logger.exception("Unexpected error in thesis command")
+        console.print(f"[red]Unexpected error:[/red] {e}")
         raise SystemExit(1)
 
 
@@ -416,7 +421,8 @@ def thesis_view(ctx: click.Context, thesis_id: int, as_json: bool) -> None:
                 _display_thesis(console, thesis)
 
     except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
+        logger.exception("Unexpected error in thesis command")
+        console.print(f"[red]Unexpected error:[/red] {e}")
         raise SystemExit(1)
 
 
@@ -605,7 +611,8 @@ def thesis_update(
 
     except Exception as e:
         if not isinstance(e, SystemExit):
-            console.print(f"[red]Error:[/red] {e}")
+            logger.exception("Unexpected error in thesis command")
+            console.print(f"[red]Unexpected error:[/red] {e}")
             raise SystemExit(1)
         raise
 
@@ -671,6 +678,7 @@ def thesis_delete(ctx: click.Context, thesis_id: int, yes: bool) -> None:
 
     except Exception as e:
         if not isinstance(e, SystemExit):
-            console.print(f"[red]Error:[/red] {e}")
+            logger.exception("Unexpected error in thesis command")
+            console.print(f"[red]Unexpected error:[/red] {e}")
             raise SystemExit(1)
         raise

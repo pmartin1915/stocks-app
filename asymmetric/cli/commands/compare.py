@@ -1,13 +1,17 @@
 """Compare command for side-by-side stock comparison."""
 
 import json
+import logging
 
 import click
+
+logger = logging.getLogger(__name__)
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from asymmetric.cli.error_handler import handle_cli_errors
 from asymmetric.cli.formatting import (
     Signals,
     get_zone_color,
@@ -77,6 +81,7 @@ def _calculate_scores(client: EdgarClient, ticker: str) -> dict:
 @click.argument("tickers", nargs=-1, required=True)
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.pass_context
+@handle_cli_errors
 def compare(
     ctx: click.Context,
     tickers: tuple[str, ...],
@@ -108,34 +113,19 @@ def compare(
     # Normalize tickers
     tickers = tuple(t.upper() for t in tickers)
 
-    try:
-        client = EdgarClient()
-        results = []
+    client = EdgarClient()
+    results = []
 
-        with console.status("[bold blue]Fetching financial data...[/bold blue]") as status:
-            for ticker in tickers:
-                status.update(f"[bold blue]Fetching {ticker}...[/bold blue]")
-                result = _calculate_scores(client, ticker)
-                results.append(result)
+    with console.status("[bold blue]Fetching financial data...[/bold blue]") as status:
+        for ticker in tickers:
+            status.update(f"[bold blue]Fetching {ticker}...[/bold blue]")
+            result = _calculate_scores(client, ticker)
+            results.append(result)
 
-        if as_json:
-            console.print(json.dumps(results, indent=2))
-        else:
-            _display_comparison(console, results)
-
-    except SECIdentityError as e:
-        console.print(f"[red]SEC Identity Error:[/red] {e}")
-        console.print("[yellow]Set SEC_IDENTITY environment variable.[/yellow]")
-        raise SystemExit(1)
-
-    except SECRateLimitError as e:
-        console.print(f"[red]SEC Rate Limit Hit:[/red] {e}")
-        console.print("[yellow]Wait a few minutes and try again.[/yellow]")
-        raise SystemExit(1)
-
-    except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
-        raise SystemExit(1)
+    if as_json:
+        console.print(json.dumps(results, indent=2))
+    else:
+        _display_comparison(console, results)
 
 
 def _display_comparison(console: Console, results: list[dict]) -> None:

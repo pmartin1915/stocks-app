@@ -5,6 +5,7 @@ maintaining equal visual weight with human-authored content.
 """
 
 import hashlib
+import html as html_module
 from datetime import datetime
 from typing import Optional
 
@@ -38,7 +39,7 @@ def render_ai_section(
     content_hash = _generate_content_hash(content, model, ticker or "")
 
     # Header with model badge and cost
-    model_display = _format_model_name(model)
+    model_display = html_module.escape(_format_model_name(model))
     text_on_accent = get_color("text_on_accent")
     blue = get_semantic_color("blue")
     gray = get_semantic_color("gray")
@@ -71,7 +72,7 @@ def render_ai_section(
             formatted_time = timestamp
         text_secondary = get_color("text_secondary")
         st.markdown(
-            f'<div style="font-size:0.8rem;color:{text_secondary};margin-bottom:8px">Generated: {formatted_time}</div>',
+            f'<div style="font-size:0.8rem;color:{text_secondary};margin-bottom:8px">Generated: {html_module.escape(formatted_time)}</div>',
             unsafe_allow_html=True,
         )
 
@@ -126,7 +127,7 @@ def render_ai_inline_badge(model: str, is_ai: bool = True) -> str:
     if not is_ai:
         return ""
 
-    model_display = _format_model_name(model)
+    model_display = html_module.escape(_format_model_name(model))
     text_on_accent = get_color("text_on_accent")
     blue = get_semantic_color("blue")
     return icons.badge(f"AI: {model_display}", blue, text_on_accent, "small")
@@ -147,7 +148,7 @@ def render_human_section(
     st.markdown(
         f"""
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span style="font-weight:600">{author}</span>
+            <span style="font-weight:600">{html_module.escape(author)}</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -161,7 +162,7 @@ def render_human_section(
             formatted_time = timestamp
         text_secondary = get_color("text_secondary")
         st.markdown(
-            f'<div style="font-size:0.8rem;color:{text_secondary};margin-bottom:8px">{formatted_time}</div>',
+            f'<div style="font-size:0.8rem;color:{text_secondary};margin-bottom:8px">{html_module.escape(formatted_time)}</div>',
             unsafe_allow_html=True,
         )
 
@@ -337,8 +338,7 @@ def _format_content(content: str) -> str:
     Returns:
         HTML-safe formatted content.
     """
-    import html
-    content = html.escape(content)
+    content = html_module.escape(content)
 
     # Convert markdown-style bullets to HTML
     lines = content.split("\n")

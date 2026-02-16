@@ -105,7 +105,7 @@ class TestEdgarClientGetCompany:
         """Test that 429 errors are handled."""
         with patch(
             "edgar.Company",
-            side_effect=Exception("429 Too Many Requests"),
+            side_effect=IOError("429 Too Many Requests"),
         ):
             with pytest.raises(SECRateLimitError) as exc_info:
                 client.get_company("AAPL")
@@ -209,7 +209,7 @@ class TestEdgarClientIntegration:
     def live_client(self, monkeypatch):
         """Create a client for live API testing."""
         # Use test identity
-        monkeypatch.setenv("SEC_IDENTITY", "AsymmetricTest/1.0 (test@example.com)")
+        monkeypatch.setenv("SEC_IDENTITY", "AsymmetricTest/1.0 (test@testing.dev)")
         return EdgarClient()
 
     def test_lookup_apple(self, live_client):

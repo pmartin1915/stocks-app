@@ -360,7 +360,7 @@ def fast_limiter():
 @pytest.fixture
 def mock_sec_identity(monkeypatch):
     """Set a valid SEC_IDENTITY for testing."""
-    monkeypatch.setenv("SEC_IDENTITY", "Asymmetric/1.0 (test@example.com)")
+    monkeypatch.setenv("SEC_IDENTITY", "AsymmetricTest/1.0 (test@testing.dev)")
     yield
 
 

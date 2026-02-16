@@ -27,6 +27,7 @@ Usage:
 import asyncio
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -42,6 +43,19 @@ logger = logging.getLogger(__name__)
 
 # Maximum response size (~50K chars to stay under ~12.5K tokens)
 MAX_RESPONSE_CHARS = 50_000
+
+_TICKER_RE = re.compile(r"^[A-Z0-9.\-]{1,10}$")
+
+
+def _validate_ticker(ticker: str) -> str:
+    """Validate and normalize a ticker from MCP arguments."""
+    ticker = ticker.strip().upper()
+    if not _TICKER_RE.match(ticker):
+        raise ValueError(
+            f"Invalid ticker symbol: {ticker!r}. "
+            "Must be 1-10 characters: A-Z, 0-9, '.', '-'"
+        )
+    return ticker
 
 
 @dataclass
@@ -379,6 +393,12 @@ class AsymmetricMCPServer:
                 response_text = _truncate_response(response_text)
                 return [TextContent(type="text", text=response_text)]
 
+            except ValueError as e:
+                # Input validation errors — safe to return to client
+                logger.warning(f"Tool {name} validation error: {e}")
+                error_response = {"error": str(e), "tool": name}
+                return [TextContent(type="text", text=_format_json_response(error_response))]
+
             except Exception as e:
                 logger.exception(f"Tool {name} failed: {e}")
                 # Return generic message to client; details stay in server logs
@@ -412,7 +432,7 @@ class AsymmetricMCPServer:
 
     async def _tool_lookup_company(self, args: dict) -> dict[str, Any]:
         """Lookup company by ticker."""
-        ticker = args.get("ticker", "").upper()
+        ticker = _validate_ticker(args.get("ticker", ""))
 
         # Prefer bulk data (zero API calls)
         if self.config.prefer_bulk_data:
@@ -438,7 +458,7 @@ class AsymmetricMCPServer:
 
     async def _tool_get_financials_summary(self, args: dict) -> dict[str, Any]:
         """Get condensed financial summary."""
-        ticker = args.get("ticker", "").upper()
+        ticker = _validate_ticker(args.get("ticker", ""))
         periods = args.get("periods", 3)
 
         # Try bulk data first
@@ -465,7 +485,7 @@ class AsymmetricMCPServer:
 
     async def _tool_calculate_scores(self, args: dict) -> dict[str, Any]:
         """Calculate Piotroski and Altman scores."""
-        ticker = args.get("ticker", "").upper()
+        ticker = _validate_ticker(args.get("ticker", ""))
         is_manufacturing = args.get("is_manufacturing", True)
 
         # Get financial data
@@ -525,6 +545,8 @@ class AsymmetricMCPServer:
                 "interpretation": altman_result.interpretation,
                 "formula_used": altman_result.formula_used,
                 "components_calculated": altman_result.components_calculated,
+                "components_required": altman_result.components_required,
+                "is_approximate": altman_result.is_approximate,
             }
         except Exception as e:
             logger.warning(f"Altman calculation failed for {ticker}: {e}")
@@ -539,7 +561,7 @@ class AsymmetricMCPServer:
 
     async def _tool_get_filing_section(self, args: dict) -> dict[str, Any]:
         """Get specific section from filing."""
-        ticker = args.get("ticker", "").upper()
+        ticker = _validate_ticker(args.get("ticker", ""))
         section = args.get("section", "")
         filing_type = args.get("filing_type", "10-K")
 
@@ -550,26 +572,38 @@ class AsymmetricMCPServer:
             return {"error": f"Section '{section}' not found for {ticker} {filing_type}"}
 
         # Truncate to fit within response limits
+        original_len = len(text)
         text = _truncate_response(text, MAX_RESPONSE_CHARS - 1000)
+        truncated = len(text) < original_len
 
-        return {
+        result = {
             "ticker": ticker,
             "filing_type": filing_type,
             "section": section,
             "content": text,
             "char_count": len(text),
+            "truncated": truncated,
         }
+        if truncated:
+            result["original_char_count"] = original_len
+        return result
 
     async def _tool_analyze_filing_with_ai(self, args: dict) -> dict[str, Any]:
         """Analyze filing with Gemini AI."""
         if not self.config.enable_ai_tools:
             return {"error": "AI tools are disabled. Set GEMINI_API_KEY to enable."}
 
-        ticker = args.get("ticker", "").upper()
+        ticker = _validate_ticker(args.get("ticker", ""))
         prompt = args.get("prompt", "")
         section = args.get("section")
         filing_type = args.get("filing_type", "10-K")
         model_name = args.get("model", "flash")
+
+        # Validate prompt
+        if not prompt or not prompt.strip():
+            return {"error": "Prompt is required for AI analysis"}
+        if len(prompt) > 50_000:
+            return {"error": f"Prompt too long ({len(prompt)} chars). Maximum 50,000."}
 
         # Get filing text
         edgar = self._get_edgar_client()
@@ -701,7 +735,7 @@ class AsymmetricMCPServer:
         if not self.config.enable_ai_tools:
             return {"error": "AI tools are disabled. Set GEMINI_API_KEY to enable."}
 
-        ticker = args.get("ticker", "").upper()
+        ticker = _validate_ticker(args.get("ticker", ""))
         metrics = args.get("metrics", [])
         filing_type = args.get("filing_type", "10-K")
 

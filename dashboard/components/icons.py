@@ -4,17 +4,18 @@ Replaces emoji-based indicators with clean, minimal SVG icons
 that render consistently across all platforms.
 """
 
+import html as html_module
 from typing import Optional
 
 from dashboard.theme import get_color, get_semantic_color
 
-# Color palette (legacy - kept for compatibility with existing tests)
+# Color palette (matches dark theme semantic colors)
 COLORS = {
-    "green": "#22c55e",
-    "yellow": "#eab308",
-    "red": "#ef4444",
-    "gray": "#6b7280",
-    "blue": "#3b82f6",
+    "green": "#10b981",
+    "yellow": "#f59e0b",
+    "red": "#f87171",
+    "gray": "#9ca3af",
+    "blue": "#60a5fa",
 }
 
 
@@ -284,10 +285,11 @@ def badge(text: str, bg_color: str, text_color: str = "#fff", size: str = "small
     padding = "2px 8px" if size == "small" else "4px 12px"
     font_size = "0.75rem" if size == "small" else "0.875rem"
 
+    escaped = html_module.escape(text)
     return (
-        f'<span style="display:inline-block;background:{bg_color};color:{text_color};'
+        f'<span role="img" aria-label="{escaped}" style="display:inline-block;background:{bg_color};color:{text_color};'
         f'padding:{padding};border-radius:12px;font-size:{font_size};font-weight:600;'
-        f'line-height:1.4">{text}</span>'
+        f'line-height:1.4">{escaped}</span>'
     )
 
 
@@ -315,13 +317,18 @@ def status_badge(zone: str, size: str = "small") -> str:
     return badge(zone.title(), bg, fg, size)
 
 
-def fscore_badge(score: int | None, size: str = "small") -> str:
+def fscore_badge(
+    score: int | None,
+    size: str = "small",
+    signals_available: int = 9,
+) -> str:
     """
     Create a colored badge for F-Score display.
 
     Args:
         score: Piotroski F-Score (0-9) or None.
         size: "small" or "normal".
+        signals_available: How many of 9 signals were calculable.
 
     Returns:
         HTML badge string.
@@ -340,10 +347,18 @@ def fscore_badge(score: int | None, size: str = "small") -> str:
     else:
         bg, fg = colors["red"], text_on_accent
 
-    return badge(f"F:{score}/9", bg, fg, size)
+    label = f"F:{score}/9"
+    if signals_available < 9:
+        label += f" ({signals_available}sig)"
+    return badge(label, bg, fg, size)
 
 
-def zscore_badge(z_score: float | None, zone: str | None, size: str = "small") -> str:
+def zscore_badge(
+    z_score: float | None,
+    zone: str | None,
+    size: str = "small",
+    is_approximate: bool = False,
+) -> str:
     """
     Create a colored badge for Z-Score display.
 
@@ -351,6 +366,7 @@ def zscore_badge(z_score: float | None, zone: str | None, size: str = "small") -
         z_score: Altman Z-Score value.
         zone: Zone classification.
         size: "small" or "normal".
+        is_approximate: If True, prefix with ~ to indicate unreliable score.
 
     Returns:
         HTML badge string.
@@ -369,7 +385,8 @@ def zscore_badge(z_score: float | None, zone: str | None, size: str = "small") -
         "distress": (colors["red"], text_on_accent),
     }
     bg, fg = zone_styles.get(zone.lower(), (colors["gray"], text_on_accent))
-    return badge(f"Z:{z_score:.1f}", bg, fg, size)
+    prefix = "~" if is_approximate else ""
+    return badge(f"Z:{prefix}{z_score:.1f}", bg, fg, size)
 
 
 def action_badge(action: str, size: str = "small") -> str:

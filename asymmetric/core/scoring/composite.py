@@ -204,7 +204,7 @@ class CompositeScorer:
             except InsufficientDataError as e:
                 logger.debug("Skipping %s: insufficient data - %s", ticker, e)
                 continue
-            except (ValueError, ZeroDivisionError, KeyError, TypeError) as e:
+            except ValueError as e:
                 logger.warning("Error scoring %s: %s", ticker, e)
                 continue
 

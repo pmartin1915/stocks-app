@@ -1,6 +1,9 @@
 """Watchlist command for saving and reviewing stock picks."""
 
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -231,8 +234,8 @@ def review(ctx: click.Context, refresh: bool) -> None:
                         # Update cached scores
                         wl["stocks"][ticker]["cached_scores"] = result
                         wl["stocks"][ticker]["cached_at"] = datetime.now(timezone.utc).isoformat()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Score cache miss for %s: %s", ticker, e)
 
         _save_watchlist(wl)
     else:

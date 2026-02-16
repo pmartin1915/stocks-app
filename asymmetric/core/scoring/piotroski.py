@@ -422,12 +422,18 @@ class PiotroskiScorer:
         return current_leverage < prior_leverage
 
     def _calc_current_ratio(self, period: FinancialPeriod) -> Optional[float]:
-        """Calculate Current Ratio = Current Assets / Current Liabilities."""
+        """Calculate Current Ratio = Current Assets / Current Liabilities.
+
+        When current liabilities are zero (extremely rare but possible for
+        cash-rich companies), returns a capped value of 999.0 instead of
+        float('inf') to avoid JSON serialization failures and unreliable
+        comparisons (inf > inf returns False in Python).
+        """
         if period.current_assets is None or period.current_liabilities is None:
             return None
         if period.current_liabilities == 0:
-            # No current liabilities is technically infinite ratio (good)
-            return float("inf") if period.current_assets else None
+            # Capped high value: avoids float('inf') which breaks JSON and comparisons
+            return 999.0 if period.current_assets else None
         return period.current_assets / period.current_liabilities
 
     def _calc_current_ratio_improving(
@@ -438,11 +444,18 @@ class PiotroskiScorer:
 
         Improving current ratio indicates better short-term liquidity
         and ability to meet near-term obligations.
+
+        Special case: If both periods have zero liabilities (both return the
+        capped 999.0 value), we award the point since maintaining zero
+        liabilities is an already-optimal state.
         """
         current_ratio = self._calc_current_ratio(current)
         prior_ratio = self._calc_current_ratio(prior)
         if current_ratio is None or prior_ratio is None:
             return None
+        # Both at cap (999.0) means zero liabilities maintained — optimal state
+        if current_ratio >= 999.0 and prior_ratio >= 999.0:
+            return True
         return current_ratio > prior_ratio
 
     def _calc_no_dilution(

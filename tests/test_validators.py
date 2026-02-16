@@ -20,12 +20,13 @@ class TestTickerPattern:
 
     @pytest.mark.parametrize("ticker", [
         "A", "AA", "AAPL", "GOOGL", "BRK.A", "BRK.B",
+        "BRK-B", "A1", "123", "BF.B",
     ])
     def test_valid_tickers(self, ticker):
         assert TICKER_PATTERN.match(ticker)
 
     @pytest.mark.parametrize("ticker", [
-        "", "TOOLONG", "123", "aapl", "A1", "A-B", ".A", "A.",
+        "", "TOOLONGXXXX1", "aapl", "$AAPL", "AA PL",
     ])
     def test_invalid_tickers(self, ticker):
         assert not TICKER_PATTERN.match(ticker)
@@ -45,17 +46,23 @@ class TestValidateTickerFormat:
     def test_single_letter_ticker(self):
         assert _validate_ticker_format("A") == "A"
 
+    def test_valid_hyphenated_ticker(self):
+        assert _validate_ticker_format("BRK-B") == "BRK-B"
+
+    def test_valid_numeric_ticker(self):
+        assert _validate_ticker_format("3M") == "3M"
+
     def test_invalid_too_long(self):
         with pytest.raises(ValueError, match="Invalid ticker format"):
-            _validate_ticker_format("TOOLONG")
-
-    def test_invalid_numbers(self):
-        with pytest.raises(ValueError, match="Invalid ticker format"):
-            _validate_ticker_format("123")
+            _validate_ticker_format("TOOLONGXXXX1")
 
     def test_invalid_lowercase(self):
         with pytest.raises(ValueError, match="Invalid ticker format"):
             _validate_ticker_format("aapl")
+
+    def test_invalid_special_chars(self):
+        with pytest.raises(ValueError, match="Invalid ticker format"):
+            _validate_ticker_format("$AAPL")
 
 
 class TestValidateTicker:
@@ -84,7 +91,7 @@ class TestValidateTicker:
         ctx = click.Context(click.Command("test"))
         param = click.Option(["--ticker"])
         with pytest.raises(click.BadParameter, match="Invalid ticker"):
-            validate_ticker(ctx, param, "TOOLONG")
+            validate_ticker(ctx, param, "TOOLONGXXXX1")
 
 
 class TestValidatePositiveFloat:

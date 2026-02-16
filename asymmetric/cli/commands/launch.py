@@ -1,6 +1,9 @@
 """Launch command for starting the dashboard and MCP server."""
 
+import logging
 import socket
+
+logger = logging.getLogger(__name__)
 import subprocess
 import sys
 import webbrowser

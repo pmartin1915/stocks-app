@@ -26,7 +26,12 @@ def get_cached_portfolio_data():
     manager = PortfolioManager()
     holdings_basic = manager.get_holdings(include_market_data=False)
     tickers = [h.ticker for h in holdings_basic]
-    prices = manager.refresh_market_prices(tickers) if tickers else {}
+    try:
+        prices = manager.refresh_market_prices(tickers) if tickers else {}
+    except Exception:
+        prices = {}
+    if prices is None:
+        prices = {}
 
     summary = manager.get_portfolio_summary(market_prices=prices)
     holdings = manager.get_holdings(market_prices=prices)

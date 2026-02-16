@@ -1,13 +1,17 @@
 """Database management commands."""
 
+import logging
+
 import click
 from rich.console import Console
+
+logger = logging.getLogger(__name__)
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 from rich.table import Table
 
+from asymmetric.cli.error_handler import handle_cli_errors
 from asymmetric.config import config
 from asymmetric.core.data.bulk_manager import BulkDataManager
-from asymmetric.core.data.exceptions import SECRateLimitError, SECEmptyResponseError
 
 
 @click.group()
@@ -21,6 +25,7 @@ def db() -> None:
 
 @db.command()
 @click.pass_context
+@handle_cli_errors
 def init(ctx: click.Context) -> None:
     """
     Initialize the local database.
@@ -34,21 +39,16 @@ def init(ctx: click.Context) -> None:
     """
     console: Console = ctx.obj["console"]
 
-    try:
-        # Ensure directories exist
-        config.ensure_directories()
+    # Ensure directories exist
+    config.ensure_directories()
 
-        with console.status("[bold blue]Initializing database...[/bold blue]"):
-            bulk = BulkDataManager()
-            bulk.initialize_schema()
-            bulk.close()
+    with console.status("[bold blue]Initializing database...[/bold blue]"):
+        bulk = BulkDataManager()
+        bulk.initialize_schema()
+        bulk.close()
 
-        console.print("[green]Database initialized successfully![/green]")
-        console.print(f"[dim]Database path: {config.bulk_dir / 'sec_data.duckdb'}[/dim]")
-
-    except Exception as e:
-        console.print(f"[red]Error initializing database:[/red] {e}")
-        raise SystemExit(1)
+    console.print("[green]Database initialized successfully![/green]")
+    console.print(f"[dim]Database path: {config.bulk_dir / 'sec_data.duckdb'}[/dim]")
 
 
 @db.command()
@@ -58,8 +58,10 @@ def init(ctx: click.Context) -> None:
     default=True,
     help="Auto-precompute scores after refresh (default: enabled)"
 )
+@click.option("--limit", type=int, default=None, help="Max companies to import (default: all)")
 @click.pass_context
-def refresh(ctx: click.Context, full: bool, precompute: bool) -> None:
+@handle_cli_errors
+def refresh(ctx: click.Context, full: bool, precompute: bool, limit: int) -> None:
     """
     Download/update SEC bulk data.
 
@@ -80,103 +82,89 @@ def refresh(ctx: click.Context, full: bool, precompute: bool) -> None:
     """
     console: Console = ctx.obj["console"]
 
-    try:
-        bulk = BulkDataManager()
-        bulk.initialize_schema()
+    bulk = BulkDataManager()
+    bulk.initialize_schema()
 
-        # Check if we need to refresh
-        stats = bulk.get_stats()
-        if not full and stats.get("last_refresh"):
-            console.print(f"[dim]Last refresh: {stats['last_refresh']}[/dim]")
+    # Check if we need to refresh
+    stats = bulk.get_stats()
+    if not full and stats.get("last_refresh"):
+        console.print(f"[dim]Last refresh: {stats['last_refresh']}[/dim]")
 
-        if full:
-            console.print("[yellow]Performing full refresh (this may take a while)...[/yellow]")
-        else:
-            console.print("[blue]Checking for updates...[/blue]")
+    if full:
+        console.print("[yellow]Performing full refresh (this may take a while)...[/yellow]")
+    else:
+        console.print("[blue]Checking for updates...[/blue]")
 
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Downloading bulk data...", total=100)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Downloading bulk data...", total=100)
 
-            def update_progress(pct: int) -> None:
-                progress.update(task, completed=pct)
-                if pct < 10:
-                    progress.update(task, description="Preparing...")
-                elif pct < 50:
-                    progress.update(task, description="Downloading companyfacts.zip...")
-                elif pct < 100:
-                    progress.update(task, description="Importing to database...")
-                else:
-                    progress.update(task, description="Complete!")
+        def update_progress(pct: int) -> None:
+            progress.update(task, completed=pct)
+            if pct < 10:
+                progress.update(task, description="Preparing...")
+            elif pct < 50:
+                progress.update(task, description="Downloading companyfacts.zip...")
+            elif pct < 100:
+                progress.update(task, description="Importing to database...")
+            else:
+                progress.update(task, description="Complete!")
 
-            bulk.refresh(full=full, progress_callback=update_progress)
+        bulk.refresh(full=full, progress_callback=update_progress, max_companies=limit if limit else None)
 
-        # Show stats
-        stats = bulk.get_stats()
+    # Show stats
+    stats = bulk.get_stats()
 
+    console.print()
+    console.print("[green]Bulk data refresh complete![/green]")
+
+    table = Table(show_header=False, box=None)
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value")
+    table.add_row("Companies", f"{stats['ticker_count']:,}")
+    table.add_row("Facts", f"{stats['fact_count']:,}")
+    table.add_row("Database Size", f"{stats['db_size_mb']:.1f} MB")
+    table.add_row("Last Refresh", stats['last_refresh'] or "N/A")
+
+    console.print(table)
+
+    # Auto-precompute scores after successful refresh
+    if precompute and stats['ticker_count'] > 0:
         console.print()
-        console.print("[green]Bulk data refresh complete![/green]")
+        console.print("[bold blue]Precomputing scores for instant screening...[/bold blue]")
 
-        table = Table(show_header=False, box=None)
-        table.add_column("Metric", style="cyan")
-        table.add_column("Value")
-        table.add_row("Companies", f"{stats['ticker_count']:,}")
-        table.add_row("Facts", f"{stats['fact_count']:,}")
-        table.add_row("Database Size", f"{stats['db_size_mb']:.1f} MB")
-        table.add_row("Last Refresh", stats['last_refresh'] or "N/A")
+        try:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                console=console,
+            ) as progress:
+                task = progress.add_task("Calculating scores...", total=100)
 
-        console.print(table)
+                def progress_callback(pct: int):
+                    progress.update(task, completed=pct)
 
-        # Auto-precompute scores after successful refresh
-        if precompute and stats['ticker_count'] > 0:
-            console.print()
-            console.print("[bold blue]Precomputing scores for instant screening...[/bold blue]")
+                count = bulk.precompute_scores(progress_callback=progress_callback)
 
-            try:
-                with Progress(
-                    SpinnerColumn(),
-                    TextColumn("[progress.description]{task.description}"),
-                    BarColumn(),
-                    TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-                    console=console,
-                ) as progress:
-                    task = progress.add_task("Calculating scores...", total=100)
+            console.print(f"[green]✓ Precomputed {count} scores[/green]")
+            console.print("[dim]Screening will now be instant with cached scores[/dim]")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Score precomputation failed: {e}[/yellow]")
+            console.print("[dim]You can run 'asymmetric db precompute' manually[/dim]")
 
-                    def progress_callback(pct: int):
-                        progress.update(task, completed=pct)
-
-                    count = bulk.precompute_scores(progress_callback=progress_callback)
-
-                console.print(f"[green]✓ Precomputed {count} scores[/green]")
-                console.print("[dim]Screening will now be instant with cached scores[/dim]")
-            except Exception as e:
-                console.print(f"[yellow]Warning: Score precomputation failed: {e}[/yellow]")
-                console.print("[dim]You can run 'asymmetric db precompute' manually[/dim]")
-
-        bulk.close()
-
-    except SECRateLimitError as e:
-        console.print(f"[red]SEC Rate Limit Hit:[/red] {e}")
-        console.print("[yellow]Wait a few minutes and try again.[/yellow]")
-        raise SystemExit(1)
-
-    except SECEmptyResponseError as e:
-        console.print(f"[red]SEC Empty Response:[/red] {e}")
-        console.print("[yellow]The SEC may be throttling requests.[/yellow]")
-        raise SystemExit(1)
-
-    except Exception as e:
-        console.print(f"[red]Error refreshing data:[/red] {e}")
-        raise SystemExit(1)
+    bulk.close()
 
 
 @db.command()
 @click.pass_context
+@handle_cli_errors
 def stats(ctx: click.Context) -> None:
     """
     Show database statistics.
@@ -190,39 +178,35 @@ def stats(ctx: click.Context) -> None:
     """
     console: Console = ctx.obj["console"]
 
-    try:
-        bulk = BulkDataManager()
-        bulk.initialize_schema()
-        db_stats = bulk.get_stats()
-        bulk.close()
+    bulk = BulkDataManager()
+    bulk.initialize_schema()
+    db_stats = bulk.get_stats()
+    bulk.close()
 
-        table = Table(title="Database Statistics", show_header=True)
-        table.add_column("Metric", style="cyan")
-        table.add_column("Value", style="green")
+    table = Table(title="Database Statistics", show_header=True)
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="green")
 
-        table.add_row("Companies", f"{db_stats['ticker_count']:,}")
-        table.add_row("Financial Facts", f"{db_stats['fact_count']:,}")
-        table.add_row("Database Size", f"{db_stats['db_size_mb']:.1f} MB")
-        table.add_row("Database Path", db_stats['db_path'])
-        table.add_row(
-            "Last Refresh",
-            db_stats['last_refresh'] or "[yellow]Never[/yellow]"
-        )
+    table.add_row("Companies", f"{db_stats['ticker_count']:,}")
+    table.add_row("Financial Facts", f"{db_stats['fact_count']:,}")
+    table.add_row("Database Size", f"{db_stats['db_size_mb']:.1f} MB")
+    table.add_row("Database Path", db_stats['db_path'])
+    table.add_row(
+        "Last Refresh",
+        db_stats['last_refresh'] or "[yellow]Never[/yellow]"
+    )
 
-        console.print(table)
+    console.print(table)
 
-        if db_stats['ticker_count'] == 0:
-            console.print()
-            console.print("[yellow]Database is empty. Run 'asymmetric db refresh' to download data.[/yellow]")
-
-    except Exception as e:
-        console.print(f"[red]Error getting stats:[/red] {e}")
-        raise SystemExit(1)
+    if db_stats['ticker_count'] == 0:
+        console.print()
+        console.print("[yellow]Database is empty. Run 'asymmetric db refresh' to download data.[/yellow]")
 
 
 @db.command()
 @click.option("--limit", type=click.IntRange(1, 100000), default=10000, help="Maximum companies to score (1-100000)")
 @click.pass_context
+@handle_cli_errors
 def precompute(ctx: click.Context, limit: int) -> None:
     """
     Precompute F-Scores and Z-Scores for all companies.
@@ -243,66 +227,59 @@ def precompute(ctx: click.Context, limit: int) -> None:
 
     console: Console = ctx.obj["console"]
 
-    try:
-        bulk = BulkDataManager()
-        bulk.initialize_schema()
+    bulk = BulkDataManager()
+    bulk.initialize_schema()
 
-        # Check if we have data
-        stats = bulk.get_stats()
-        if stats["ticker_count"] == 0:
-            console.print("[yellow]No bulk data available.[/yellow]")
-            console.print("Run [cyan]asymmetric db refresh[/cyan] first.")
-            bulk.close()
-            raise SystemExit(1)
-
-        console.print(f"[bold blue]Precomputing scores for up to {limit:,} companies...[/bold blue]")
-        console.print(f"[dim]Using bulk data with {stats['ticker_count']:,} companies[/dim]")
-        console.print()
-
-        start_time = time.perf_counter()
-        scores_computed = 0
-
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Computing scores...", total=100)
-
-            def update_progress(current: int, total: int, ticker: str) -> None:
-                nonlocal scores_computed
-                scores_computed = current
-                pct = (current / total * 100) if total > 0 else 0
-                progress.update(task, completed=pct, description=f"Scoring {ticker}...")
-
-            bulk.precompute_scores(limit=limit, progress_callback=update_progress)
-            progress.update(task, completed=100, description="Complete!")
-
-        elapsed = time.perf_counter() - start_time
-
-        # Get final stats
-        score_stats = bulk.get_scores_stats()
+    # Check if we have data
+    stats = bulk.get_stats()
+    if stats["ticker_count"] == 0:
+        console.print("[yellow]No bulk data available.[/yellow]")
+        console.print("Run [cyan]asymmetric db refresh[/cyan] first.")
         bulk.close()
+        raise SystemExit(1)
 
-        console.print()
-        console.print("[green]Precomputation complete![/green]")
-        console.print()
+    console.print(f"[bold blue]Precomputing scores for up to {limit:,} companies...[/bold blue]")
+    console.print(f"[dim]Using bulk data with {stats['ticker_count']:,} companies[/dim]")
+    console.print()
 
-        table = Table(show_header=False, box=None)
-        table.add_column("Metric", style="cyan")
-        table.add_column("Value")
-        table.add_row("Scores Computed", f"{score_stats.get('total_scores', scores_computed):,}")
-        table.add_row("Time Elapsed", f"{elapsed:.1f} seconds")
-        table.add_row("Last Computed", score_stats.get("last_computed", "N/A"))
+    start_time = time.perf_counter()
+    scores_computed = 0
 
-        console.print(table)
-        console.print()
-        console.print("[dim]Run 'asymmetric screen' for instant results using precomputed scores.[/dim]")
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Computing scores...", total=100)
 
-    except Exception as e:
-        if not isinstance(e, SystemExit):
-            console.print(f"[red]Error precomputing scores:[/red] {e}")
-            raise SystemExit(1)
-        raise
+        def update_progress(pct: int) -> None:
+            nonlocal scores_computed
+            scores_computed = pct
+            progress.update(task, completed=pct, description=f"Computing scores... {pct}%")
+
+        tickers = bulk.get_scorable_tickers(limit=limit)
+        bulk.precompute_scores(tickers=tickers, progress_callback=update_progress)
+        progress.update(task, completed=100, description="Complete!")
+
+    elapsed = time.perf_counter() - start_time
+
+    # Get final stats
+    score_stats = bulk.get_scores_stats()
+    bulk.close()
+
+    console.print()
+    console.print("[green]Precomputation complete![/green]")
+    console.print()
+
+    table = Table(show_header=False, box=None)
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value")
+    table.add_row("Scores Computed", f"{score_stats.get('total_scores', scores_computed):,}")
+    table.add_row("Time Elapsed", f"{elapsed:.1f} seconds")
+    table.add_row("Last Computed", score_stats.get("last_computed", "N/A"))
+
+    console.print(table)
+    console.print()
+    console.print("[dim]Run 'asymmetric screen' for instant results using precomputed scores.[/dim]")

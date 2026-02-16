@@ -72,9 +72,10 @@ class TestDbPrecompute:
         result = runner.invoke(cli, ["db", "precompute", "--limit", "100"])
 
         assert result.exit_code == 0
-        # Check that precompute_scores was called with limit=100
-        call_kwargs = mock_bulk_manager_with_data.precompute_scores.call_args
-        assert call_kwargs[1]["limit"] == 100
+        # Check that get_scorable_tickers was called with limit=100
+        mock_bulk_manager_with_data.get_scorable_tickers.assert_called_once_with(limit=100)
+        # And precompute_scores was called with those tickers
+        mock_bulk_manager_with_data.precompute_scores.assert_called_once()
 
     def test_precompute_shows_stats(self, runner, mock_bulk_manager_with_data):
         """Test precompute displays completion stats."""

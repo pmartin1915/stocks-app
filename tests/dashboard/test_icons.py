@@ -179,6 +179,17 @@ class TestFScoreBadge:
         assert "padding:2px 8px" in small
         assert "padding:4px 12px" in normal
 
+    def test_fscore_incomplete_signals(self):
+        """F-Score with fewer than 9 signals should show signal count."""
+        b = fscore_badge(7, signals_available=6)
+        assert "6sig" in b
+        assert "F:7/9" in b
+
+    def test_fscore_full_signals_no_suffix(self):
+        """F-Score with all 9 signals should NOT show signal count."""
+        b = fscore_badge(7, signals_available=9)
+        assert "sig" not in b
+
 
 class TestZScoreBadge:
     """Tests for Z-Score badge coloring."""
@@ -219,6 +230,17 @@ class TestZScoreBadge:
         """Z-Score should display with 1 decimal place."""
         b = zscore_badge(3.456, "Safe")
         assert "Z:3.5" in b  # Rounded to 1 decimal
+
+    def test_zscore_approximate(self):
+        """Approximate Z-Score should show ~ prefix."""
+        b = zscore_badge(2.5, "Grey", is_approximate=True)
+        assert "Z:~2.5" in b
+
+    def test_zscore_not_approximate(self):
+        """Non-approximate Z-Score should NOT show ~ prefix."""
+        b = zscore_badge(3.5, "Safe", is_approximate=False)
+        assert "Z:3.5" in b
+        assert "~" not in b
 
 
 class TestStatusBadge:
@@ -304,34 +326,34 @@ class TestStarsRating:
     def test_full_stars(self):
         """5/5 stars should have 5 filled."""
         stars = stars_rating(5, max_stars=5)
-        # Filled stars have fill="#eab308" (yellow)
-        assert stars.count('fill="#eab308"') == 5
+        # Filled stars have fill="#f59e0b" (dark theme yellow/amber)
+        assert stars.count('fill="#f59e0b"') == 5
 
     def test_no_stars(self):
         """0/5 stars should have none filled."""
         stars = stars_rating(0, max_stars=5)
-        assert stars.count('fill="#eab308"') == 0
+        assert stars.count('fill="#f59e0b"') == 0
 
     def test_partial_stars(self):
         """3/5 stars should have 3 filled."""
         stars = stars_rating(3, max_stars=5)
-        assert stars.count('fill="#eab308"') == 3
+        assert stars.count('fill="#f59e0b"') == 3
 
     def test_clamp_high(self):
         """Rating > max should clamp to max."""
         stars = stars_rating(10, max_stars=5)
-        assert stars.count('fill="#eab308"') == 5
+        assert stars.count('fill="#f59e0b"') == 5
 
     def test_clamp_negative(self):
         """Negative rating should clamp to 0."""
         stars = stars_rating(-1, max_stars=5)
-        assert stars.count('fill="#eab308"') == 0
+        assert stars.count('fill="#f59e0b"') == 0
 
     def test_custom_max_stars(self):
         """Custom max_stars should work."""
         stars = stars_rating(3, max_stars=10)
         # Should have 3 filled and 7 empty
-        assert stars.count('fill="#eab308"') == 3
+        assert stars.count('fill="#f59e0b"') == 3
         # Count total SVG elements (10 stars)
         assert stars.count("<svg") == 10
 

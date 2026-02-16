@@ -109,6 +109,8 @@ def get_scores_for_ticker(ticker: str) -> dict[str, Any]:
                 "interpretation": z_result.interpretation,
                 "formula_used": z_result.formula_used,
                 "components_calculated": z_result.components_calculated,
+                "components_required": z_result.components_required,
+                "is_approximate": z_result.is_approximate,
             }
         except InsufficientDataError as e:
             logger.warning("Insufficient data for Altman Z-Score on %s: %s", ticker, e)

@@ -51,22 +51,22 @@ class TestValidateTicker:
         assert "Invalid ticker format" in error
 
     def test_invalid_too_long_ticker(self):
-        """Test ticker longer than 5 letters is invalid."""
-        is_valid, error = validate_ticker("TOOLONG")
+        """Test ticker longer than 10 chars is invalid."""
+        is_valid, error = validate_ticker("TOOLONGXXXX1")
         assert not is_valid
         assert "Invalid ticker format" in error
 
-    def test_invalid_ticker_with_numbers(self):
-        """Test ticker with numbers is invalid."""
-        is_valid, error = validate_ticker("AAP1L")
-        assert not is_valid
-        assert "Invalid ticker format" in error
+    def test_valid_ticker_with_numbers(self):
+        """Test ticker with numbers is valid (e.g., 3M)."""
+        is_valid, error = validate_ticker("3M")
+        assert is_valid
+        assert error == ""
 
-    def test_invalid_multiple_hyphens(self):
-        """Test ticker with multiple hyphens is invalid."""
-        is_valid, error = validate_ticker("BR-K-B")
-        assert not is_valid
-        assert "Invalid ticker format" in error
+    def test_valid_dot_suffix_ticker(self):
+        """Test dot-suffix tickers like BRK.A are valid."""
+        is_valid, error = validate_ticker("BRK.A")
+        assert is_valid
+        assert error == ""
 
     def test_invalid_special_characters(self):
         """Test ticker with special characters is invalid."""

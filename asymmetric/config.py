@@ -135,13 +135,25 @@ class Config:
     )
 
     def __post_init__(self) -> None:
-        """Convert string paths to Path objects if needed."""
+        """Convert string paths to Path objects and validate early."""
         if isinstance(self.db_path, str):
             self.db_path = Path(self.db_path)
         if isinstance(self.bulk_dir, str):
             self.bulk_dir = Path(self.bulk_dir)
         if isinstance(self.cache_dir, str):
             self.cache_dir = Path(self.cache_dir)
+
+        # Validate SEC identity early — warn at import time instead of failing
+        # silently on first API request. We log a warning rather than raising
+        # because the dashboard and other non-SEC features should still work.
+        import logging
+
+        _logger = logging.getLogger(__name__)
+        if "example.com" in self.sec_identity or "user@example" in self.sec_identity:
+            _logger.warning(
+                "SEC_IDENTITY not configured. SEC EDGAR API calls will fail. "
+                "Set SEC_IDENTITY='Asymmetric/1.0 (your-email@domain.com)' in .env"
+            )
 
     def validate(self) -> None:
         """

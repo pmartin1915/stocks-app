@@ -11,6 +11,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 from rich.table import Table
 from rich.text import Text
 
+from asymmetric.cli.error_handler import handle_cli_errors
 from asymmetric.cli.formatting import get_score_color, get_zone_color, print_next_steps
 from asymmetric.core.data.bulk_manager import BulkDataManager
 from asymmetric.core.data.exceptions import (
@@ -101,6 +102,7 @@ logger = logging.getLogger(__name__)
     help="Bypass cache and recalculate scores",
 )
 @click.pass_context
+@handle_cli_errors
 def screen(
     ctx: click.Context,
     piotroski_min: int | None,
@@ -146,225 +148,218 @@ def screen(
     """
     console: Console = ctx.obj["console"]
 
-    try:
-        bulk = BulkDataManager()
+    bulk = BulkDataManager()
 
-        # Handle --refresh flag
-        if refresh:
-            console.print("[bold blue]Refreshing bulk data...[/bold blue]")
-            try:
-                bulk.refresh()
-                console.print("[green]Bulk data updated.[/green]\n")
-            except SECRateLimitError as e:
-                console.print(f"[red]SEC Rate Limit Hit:[/red] {e}")
-                console.print("[yellow]Wait a few minutes and try again.[/yellow]")
-                raise SystemExit(1)
-
-        # Try precomputed scores first (instant path)
-        if use_cache and not force_recalculate:
-            if bulk.has_precomputed_scores():
-                scores_stats = bulk.get_scores_stats()
-                last_computed = scores_stats.get("last_computed")
-
-                # Check if cache is fresh (<24 hours old)
-                if last_computed and _is_fresh(last_computed, max_age_hours=24):
-                    console.print("[dim]Using precomputed scores (instant)...[/dim]")
-
-                    # INSTANT PATH - Pure SQL query
-                    results = bulk.get_precomputed_scores(
-                        piotroski_min=piotroski_min,
-                        altman_min=altman_min,
-                        altman_zone=altman_zone,
-                        limit=limit,
-                        sort_by=sort_by,
-                        sort_order=sort_order,
-                    )
-
-                    # Convert to expected format and display
-                    output = _format_precomputed_results(results, piotroski_min, altman_min, altman_zone)
-
-                    # Add to watchlist if requested
-                    if add_to_watchlist and results:
-                        added_count = _add_results_to_watchlist(results, output["criteria"])
-                        if not as_json:
-                            console.print(f"[green]Added {added_count} stocks to watchlist[/green]")
-                            console.print()
-
-                    if as_json:
-                        console.print(json.dumps(output, indent=2))
-                    else:
-                        _display_results(console, output)
-                    return
-                else:
-                    console.print("[yellow]Precomputed scores are stale (>24h), recalculating...[/yellow]")
-
-        # Use optimized batch approach: get pre-filtered scorable tickers
-        console.print("[dim]Finding scorable companies...[/dim]")
-        tickers = bulk.get_scorable_tickers(
-            require_piotroski=True,
-            require_altman=True,
-            limit=1000,
-        )
-
-        if not tickers:
-            # Fall back to all tickers if scorable query fails
-            tickers = bulk.get_all_tickers(limit=1000)
-
-        if not tickers:
-            console.print("[yellow]No bulk data available.[/yellow]")
-            console.print("Run [cyan]asymmetric db refresh[/cyan] to download SEC data.")
+    # Handle --refresh flag
+    if refresh:
+        console.print("[bold blue]Refreshing bulk data...[/bold blue]")
+        try:
+            bulk.refresh()
+            console.print("[green]Bulk data updated.[/green]\n")
+        except SECRateLimitError as e:
+            console.print(f"[red]SEC Rate Limit Hit:[/red] {e}")
+            console.print("[yellow]Wait a few minutes and try again.[/yellow]")
             raise SystemExit(1)
 
-        # Initialize scorers
-        piotroski_scorer = PiotroskiScorer()
-        altman_scorer = AltmanScorer()
+    # Try precomputed scores first (instant path)
+    if use_cache and not force_recalculate:
+        if bulk.has_precomputed_scores():
+            scores_stats = bulk.get_scores_stats()
+            last_computed = scores_stats.get("last_computed")
 
-        results = []
-        skipped_count = 0
+            # Check if cache is fresh (<24 hours old)
+            if last_computed and _is_fresh(last_computed, max_age_hours=24):
+                console.print("[dim]Using precomputed scores (instant)...[/dim]")
 
-        # Use batch query for better performance
-        console.print(f"[dim]Fetching financial data for {len(tickers)} companies...[/dim]")
-        batch_data = bulk.get_batch_financials(tickers, periods=2)
+                # INSTANT PATH - Pure SQL query
+                results = bulk.get_precomputed_scores(
+                    piotroski_min=piotroski_min,
+                    altman_min=altman_min,
+                    altman_zone=altman_zone,
+                    limit=limit,
+                    sort_by=sort_by,
+                    sort_order=sort_order,
+                )
 
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            console=console,
-            transient=True,
-        ) as progress:
-            task = progress.add_task(
-                f"[cyan]Scoring {len(batch_data)} companies...",
-                total=len(batch_data),
-            )
+                # Convert to expected format and display
+                output = _format_precomputed_results(results, piotroski_min, altman_min, altman_zone)
 
-            for ticker, periods_data in batch_data.items():
-                progress.update(task, advance=1)
+                # Add to watchlist if requested
+                if add_to_watchlist and results:
+                    added_count = _add_results_to_watchlist(results, output["criteria"])
+                    if not as_json:
+                        console.print(f"[green]Added {added_count} stocks to watchlist[/green]")
+                        console.print()
 
-                try:
-                    if not periods_data:
-                        skipped_count += 1
-                        continue
+                if as_json:
+                    console.print(json.dumps(output, indent=2))
+                else:
+                    _display_results(console, output)
+                return
+            else:
+                console.print("[yellow]Precomputed scores are stale (>24h), recalculating...[/yellow]")
 
-                    # Current period is first (newest), prior is second
-                    current_financials = periods_data[0]
-                    prior_financials = periods_data[1] if len(periods_data) > 1 else {}
+    # Use optimized batch approach: get pre-filtered scorable tickers
+    console.print("[dim]Finding scorable companies...[/dim]")
+    tickers = bulk.get_scorable_tickers(
+        require_piotroski=True,
+        require_altman=True,
+        limit=1000,
+    )
 
-                    # Calculate scores
-                    try:
-                        piotroski_result = piotroski_scorer.calculate_from_dict(
-                            current_financials, prior_financials
-                        )
-                    except InsufficientDataError:
-                        skipped_count += 1
-                        continue
+    if not tickers:
+        # Fall back to all tickers if scorable query fails
+        tickers = bulk.get_all_tickers(limit=1000)
 
-                    try:
-                        altman_result = altman_scorer.calculate_from_dict(current_financials)
-                    except InsufficientDataError:
-                        skipped_count += 1
-                        continue
+    if not tickers:
+        console.print("[yellow]No bulk data available.[/yellow]")
+        console.print("Run [cyan]asymmetric db refresh[/cyan] to download SEC data.")
+        raise SystemExit(1)
 
-                    # Apply filters
-                    if piotroski_min is not None and piotroski_result.score < piotroski_min:
-                        continue
-                    # Case-insensitive zone comparison (user might pass "safe" instead of "Safe")
-                    if altman_zone is not None and altman_result.zone.lower() != altman_zone.lower():
-                        continue
-                    if altman_min is not None and altman_result.z_score < altman_min:
-                        continue
+    # Initialize scorers
+    piotroski_scorer = PiotroskiScorer()
+    altman_scorer = AltmanScorer()
 
-                    # Get company info for display
-                    company_info = bulk.get_company_info(ticker)
-                    company_name = company_info.get("company_name", "") if company_info else ""
-                    sic_code = company_info.get("sic_code", "") if company_info else ""
+    results = []
+    skipped_count = 0
 
-                    # Apply sector/industry filters if specified
-                    stock_sector = ""
-                    stock_industry = ""
-                    if sector or industry:
-                        from asymmetric.core.data.sic_codes import get_sector_from_sic
-                        if sic_code:
-                            sector_info = get_sector_from_sic(sic_code)
-                            if sector_info:
-                                stock_sector = sector_info.sector
-                                stock_industry = sector_info.industry
+    # Use batch query for better performance
+    console.print(f"[dim]Fetching financial data for {len(tickers)} companies...[/dim]")
+    batch_data = bulk.get_batch_financials(tickers, periods=2)
 
-                        if sector and stock_sector.lower() != sector.lower():
-                            continue
-                        if industry and stock_industry.lower() != industry.lower():
-                            continue
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task(
+            f"[cyan]Scoring {len(batch_data)} companies...",
+            total=len(batch_data),
+        )
 
-                    results.append({
-                        "ticker": ticker,
-                        "company_name": company_name[:30] if company_name else "",
-                        "piotroski_score": piotroski_result.score,
-                        "piotroski_interpretation": piotroski_result.interpretation,
-                        "altman_z_score": round(altman_result.z_score, 2),
-                        "altman_zone": altman_result.zone,
-                        "sector": stock_sector,
-                        "industry": stock_industry,
-                    })
+        for ticker, periods_data in batch_data.items():
+            progress.update(task, advance=1)
 
-                except Exception as e:
-                    logger.debug(f"Skipping {ticker}: {e}")
+            try:
+                if not periods_data:
                     skipped_count += 1
                     continue
 
-        # Sort results
-        sort_keys = {
-            "piotroski": lambda x: x["piotroski_score"],
-            "altman": lambda x: x["altman_z_score"],
-            "ticker": lambda x: x["ticker"],
-        }
-        reverse = sort_order == "desc"
-        results.sort(key=sort_keys[sort_by], reverse=reverse)
+                # Current period is first (newest), prior is second
+                current_financials = periods_data[0]
+                prior_financials = periods_data[1] if len(periods_data) > 1 else {}
 
-        # Apply limit
-        results = results[:limit]
+                # Calculate scores
+                try:
+                    piotroski_result = piotroski_scorer.calculate_from_dict(
+                        current_financials, prior_financials
+                    )
+                except InsufficientDataError:
+                    skipped_count += 1
+                    continue
 
-        # Build output
-        criteria = {}
-        if piotroski_min is not None:
-            criteria["piotroski_min"] = piotroski_min
-        if altman_min is not None:
-            criteria["altman_min"] = altman_min
-        if altman_zone is not None:
-            criteria["altman_zone"] = altman_zone
-        if sector is not None:
-            criteria["sector"] = sector
-        if industry is not None:
-            criteria["industry"] = industry
+                try:
+                    altman_result = altman_scorer.calculate_from_dict(current_financials)
+                except InsufficientDataError:
+                    skipped_count += 1
+                    continue
 
-        output = {
-            "criteria": criteria,
-            "stats": {
-                "total_tickers": len(tickers),
-                "total_scored": len(tickers) - skipped_count,
-                "skipped": skipped_count,
-                "matches": len(results),
-            },
-            "results": results,
-        }
+                # Apply filters
+                if piotroski_min is not None and piotroski_result.score < piotroski_min:
+                    continue
+                # Case-insensitive zone comparison (user might pass "safe" instead of "Safe")
+                if altman_zone is not None and altman_result.zone.lower() != altman_zone.lower():
+                    continue
+                if altman_min is not None and altman_result.z_score < altman_min:
+                    continue
 
-        # Add to watchlist if requested
-        if add_to_watchlist and results:
-            added_count = _add_results_to_watchlist(results, criteria)
-            if not as_json:
-                console.print(f"[green]Added {added_count} stocks to watchlist[/green]")
-                console.print()
+                # Get company info for display
+                company_info = bulk.get_company_info(ticker)
+                company_name = company_info.get("company_name", "") if company_info else ""
+                sic_code = company_info.get("sic_code", "") if company_info else ""
 
-        if as_json:
-            console.print(json.dumps(output, indent=2))
-        else:
-            _display_results(console, output)
+                # Apply sector/industry filters if specified
+                stock_sector = ""
+                stock_industry = ""
+                if sector or industry:
+                    from asymmetric.core.data.sic_codes import get_sector_from_sic
+                    if sic_code:
+                        sector_info = get_sector_from_sic(sic_code)
+                        if sector_info:
+                            stock_sector = sector_info.sector
+                            stock_industry = sector_info.industry
 
-    except Exception as e:
-        if not isinstance(e, SystemExit):
-            console.print(f"[red]Error:[/red] {e}")
-            raise SystemExit(1)
-        raise
+                    if sector and stock_sector.lower() != sector.lower():
+                        continue
+                    if industry and stock_industry.lower() != industry.lower():
+                        continue
+
+                results.append({
+                    "ticker": ticker,
+                    "company_name": company_name[:30] if company_name else "",
+                    "piotroski_score": piotroski_result.score,
+                    "piotroski_interpretation": piotroski_result.interpretation,
+                    "altman_z_score": round(altman_result.z_score, 2),
+                    "altman_zone": altman_result.zone,
+                    "sector": stock_sector,
+                    "industry": stock_industry,
+                })
+
+            except Exception as e:
+                logger.debug(f"Skipping {ticker}: {e}")
+                skipped_count += 1
+                continue
+
+    # Sort results
+    sort_keys = {
+        "piotroski": lambda x: x["piotroski_score"],
+        "altman": lambda x: x["altman_z_score"],
+        "ticker": lambda x: x["ticker"],
+    }
+    reverse = sort_order == "desc"
+    results.sort(key=sort_keys[sort_by], reverse=reverse)
+
+    # Apply limit
+    results = results[:limit]
+
+    # Build output
+    criteria = {}
+    if piotroski_min is not None:
+        criteria["piotroski_min"] = piotroski_min
+    if altman_min is not None:
+        criteria["altman_min"] = altman_min
+    if altman_zone is not None:
+        criteria["altman_zone"] = altman_zone
+    if sector is not None:
+        criteria["sector"] = sector
+    if industry is not None:
+        criteria["industry"] = industry
+
+    output = {
+        "criteria": criteria,
+        "stats": {
+            "total_tickers": len(tickers),
+            "total_scored": len(tickers) - skipped_count,
+            "skipped": skipped_count,
+            "matches": len(results),
+        },
+        "results": results,
+    }
+
+    # Add to watchlist if requested
+    if add_to_watchlist and results:
+        added_count = _add_results_to_watchlist(results, criteria)
+        if not as_json:
+            console.print(f"[green]Added {added_count} stocks to watchlist[/green]")
+            console.print()
+
+    if as_json:
+        console.print(json.dumps(output, indent=2))
+    else:
+        _display_results(console, output)
 
 
 def _display_results(console: Console, output: dict) -> None:

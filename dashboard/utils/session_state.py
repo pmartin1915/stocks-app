@@ -13,8 +13,7 @@ SESSION_DEFAULTS = {
     # Theme (shared across all pages)
     "theme": "light",
 
-    # Watchlist page
-    "confirm_remove": None,
+    # Watchlist page — confirm_remove is now per-ticker, managed dynamically
 
     # Compare page
     "compare_tickers": [],
@@ -44,7 +43,7 @@ SESSION_DEFAULTS = {
 
 # Page-specific keys mapping
 PAGE_KEYS = {
-    "watchlist": ["theme", "confirm_remove"],
+    "watchlist": ["theme"],
     "compare": ["theme", "compare_tickers", "compare_results", "compare_ai_result"],
     "decisions": [
         "theme",

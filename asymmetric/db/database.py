@@ -10,6 +10,7 @@ import threading
 from contextlib import contextmanager
 from typing import Generator, Optional
 
+from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from asymmetric.config import config
@@ -47,7 +48,17 @@ def get_engine():
                         "check_same_thread": False  # Required for HTTP mode
                     },
                 )
-                logger.info(f"Database engine initialized: {db_path}")
+
+                # Enable WAL mode for concurrent read/write access.
+                # Without this, the dashboard (reader) and CLI/MCP (writer)
+                # can cause "database is locked" errors.
+                @event.listens_for(_engine, "connect")
+                def _set_sqlite_wal(dbapi_conn, connection_record):
+                    cursor = dbapi_conn.cursor()
+                    cursor.execute("PRAGMA journal_mode=WAL")
+                    cursor.close()
+
+                logger.info(f"Database engine initialized (WAL mode): {db_path}")
 
     return _engine
 
@@ -69,8 +80,12 @@ def init_db() -> None:
         Thesis,
     )
     from asymmetric.db.portfolio_models import (  # noqa: F401
+        CashFlow,
+        CorporateAction,
         Holding,
+        LotDisposition,
         PortfolioSnapshot,
+        TaxLot,
         Transaction,
     )
     from asymmetric.db.alert_models import (  # noqa: F401

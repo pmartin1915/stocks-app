@@ -1,14 +1,18 @@
 """Scoring commands for Piotroski F-Score and Altman Z-Score."""
 
 import json
+import logging
 from datetime import datetime, timezone
 
 import click
+
+logger = logging.getLogger(__name__)
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from asymmetric.cli.error_handler import handle_cli_errors
 from asymmetric.cli.formatting import (
     get_fscore_verdict,
     get_quick_signals,
@@ -18,12 +22,7 @@ from asymmetric.cli.formatting import (
     make_progress_bar,
 )
 from asymmetric.core.data.edgar_client import EdgarClient
-from asymmetric.core.data.exceptions import (
-    InsufficientDataError,
-    SECEmptyResponseError,
-    SECIdentityError,
-    SECRateLimitError,
-)
+from asymmetric.core.data.exceptions import InsufficientDataError
 from asymmetric.core.scoring import AltmanScorer, PiotroskiScorer
 
 
@@ -35,6 +34,7 @@ from asymmetric.core.scoring import AltmanScorer, PiotroskiScorer
 @click.option("--altman-only", is_flag=True, help="Only calculate Altman Z-Score")
 @click.option("--save", is_flag=True, help="Save scores to database")
 @click.pass_context
+@handle_cli_errors
 def score(
     ctx: click.Context,
     ticker: str,
@@ -58,90 +58,73 @@ def score(
     console: Console = ctx.obj["console"]
     ticker = ticker.upper()
 
-    try:
-        with console.status(f"[bold blue]Fetching financial data for {ticker}...[/bold blue]"):
-            client = EdgarClient()
-            financials = client.get_financials(ticker, periods=2)
+    with console.status(f"[bold blue]Fetching financial data for {ticker}...[/bold blue]"):
+        client = EdgarClient()
+        financials = client.get_financials(ticker, periods=2)
 
-        if not financials.get("periods") or len(financials["periods"]) < 1:
-            console.print(f"[red]No financial data available for {ticker}[/red]")
-            raise SystemExit(1)
-
-        results: dict = {
-            "ticker": ticker,
-            "piotroski": None,
-            "altman": None,
-        }
-
-        current_period = financials["periods"][0]
-        prior_period = financials["periods"][1] if len(financials["periods"]) > 1 else {}
-
-        # Calculate Piotroski F-Score
-        if not altman_only:
-            try:
-                piotroski = PiotroskiScorer()
-                f_result = piotroski.calculate_from_dict(current_period, prior_period)
-                results["piotroski"] = {
-                    "score": f_result.score,
-                    "max_score": 9,
-                    "signals_available": f_result.signals_available,
-                    "interpretation": f_result.interpretation,
-                    "profitability_score": f_result.profitability_score,
-                    "leverage_score": f_result.leverage_score,
-                    "efficiency_score": f_result.efficiency_score,
-                    "missing_signals": f_result.missing_signals,
-                }
-            except InsufficientDataError as e:
-                results["piotroski"] = {"error": str(e)}
-
-        # Calculate Altman Z-Score
-        if not piotroski_only:
-            try:
-                altman = AltmanScorer()
-                z_result = altman.calculate_from_dict(current_period)
-                results["altman"] = {
-                    "z_score": round(z_result.z_score, 2),
-                    "zone": z_result.zone,
-                    "interpretation": z_result.interpretation,
-                    "formula_used": z_result.formula_used,
-                    "components_calculated": z_result.components_calculated,
-                    "missing_inputs": z_result.missing_inputs,
-                }
-            except InsufficientDataError as e:
-                results["altman"] = {"error": str(e)}
-
-        # Save to database if requested
-        if save:
-            p = results.get("piotroski", {})
-            if p and "error" not in p:
-                _save_score_to_db(ticker, results)
-                if not as_json:
-                    console.print("[green]Score saved to database[/green]")
-                    console.print()
-
-        # Output
-        if as_json:
-            console.print(json.dumps(results, indent=2))
-        else:
-            _display_scores(console, ticker, results, detail=detail)
-
-    except SECIdentityError as e:
-        console.print(f"[red]SEC Identity Error:[/red] {e}")
-        console.print("[yellow]Set SEC_IDENTITY environment variable.[/yellow]")
+    if not financials.get("periods") or len(financials["periods"]) < 1:
+        console.print(f"[red]No financial data available for {ticker}[/red]")
         raise SystemExit(1)
 
-    except SECRateLimitError as e:
-        console.print(f"[red]SEC Rate Limit Hit:[/red] {e}")
-        console.print("[yellow]Wait a few minutes and try again.[/yellow]")
-        raise SystemExit(1)
+    results: dict = {
+        "ticker": ticker,
+        "piotroski": None,
+        "altman": None,
+    }
 
-    except SECEmptyResponseError as e:
-        console.print(f"[red]SEC Empty Response:[/red] {e}")
-        raise SystemExit(1)
+    current_period = financials["periods"][0]
+    prior_period = financials["periods"][1] if len(financials["periods"]) > 1 else {}
 
-    except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
-        raise SystemExit(1)
+    # Calculate Piotroski F-Score
+    if not altman_only:
+        try:
+            piotroski = PiotroskiScorer()
+            f_result = piotroski.calculate_from_dict(current_period, prior_period)
+            results["piotroski"] = {
+                "score": f_result.score,
+                "max_score": 9,
+                "signals_available": f_result.signals_available,
+                "interpretation": f_result.interpretation,
+                "profitability_score": f_result.profitability_score,
+                "leverage_score": f_result.leverage_score,
+                "efficiency_score": f_result.efficiency_score,
+                "missing_signals": f_result.missing_signals,
+            }
+        except InsufficientDataError as e:
+            results["piotroski"] = {"error": str(e)}
+
+    # Calculate Altman Z-Score
+    if not piotroski_only:
+        try:
+            altman = AltmanScorer()
+            z_result = altman.calculate_from_dict(current_period)
+            results["altman"] = {
+                "z_score": round(z_result.z_score, 2),
+                "zone": z_result.zone,
+                "interpretation": z_result.interpretation,
+                "formula_used": z_result.formula_used,
+                "components_calculated": z_result.components_calculated,
+                "components_required": z_result.components_required,
+                "is_approximate": z_result.is_approximate,
+                "missing_inputs": z_result.missing_inputs,
+            }
+        except InsufficientDataError as e:
+            results["altman"] = {"error": str(e)}
+
+    # Save to database if requested
+    if save:
+        p = results.get("piotroski", {})
+        if p and "error" not in p:
+            _save_score_to_db(ticker, results)
+            if not as_json:
+                console.print("[green]Score saved to database[/green]")
+                console.print()
+
+    # Output
+    if as_json:
+        console.print(json.dumps(results, indent=2))
+    else:
+        _display_scores(console, ticker, results, detail=detail)
 
 
 def _display_scores(console: Console, ticker: str, results: dict, detail: bool = False) -> None:
@@ -192,14 +175,17 @@ def _display_simple_scores(console: Console, ticker: str, results: dict) -> None
         score = p["score"]
         color = get_score_color(score, 9)
         bar = make_progress_bar(score, 9)
-        lines.append(f"  Piotroski F-Score   [{color}]{bar}[/{color}]  [bold]{score}/9[/bold]")
+        signals = p.get("signals_available", 9)
+        signal_note = f" [dim]({signals}/9 signals)[/dim]" if signals < 9 else ""
+        lines.append(f"  Piotroski F-Score   [{color}]{bar}[/{color}]  [bold]{score}/9[/bold]{signal_note}")
 
     if a and "error" not in a:
         # Z-Score bar (capped at 10 for display)
         z_score = a["z_score"]
         color = get_zone_color(a["zone"])
         bar = make_progress_bar(min(z_score, 10), 10)
-        lines.append(f"  Altman Z-Score      [{color}]{bar}[/{color}]  [bold]{z_score:.2f}[/bold] {a['zone']}")
+        approx = " ~" if a.get("is_approximate") else ""
+        lines.append(f"  Altman Z-Score      [{color}]{bar}[/{color}]  [bold]{approx}{z_score:.2f}[/bold] {a['zone']}")
 
     # Quick signals
     signals = get_quick_signals(p, a)

@@ -455,7 +455,8 @@ class TestDataImport:
             },
         }
 
-        bulk_manager._import_company_data(sample_data)
+        rows, name_update = bulk_manager._parse_company_data(sample_data)
+        bulk_manager._flush_batch(rows, [name_update] if name_update else [])
 
         # Check facts were imported
         result = bulk_manager.conn.execute(
@@ -473,7 +474,8 @@ class TestDataImport:
         }
 
         # Should not error
-        bulk_manager._import_company_data(sample_data)
+        rows, name_update = bulk_manager._parse_company_data(sample_data)
+        bulk_manager._flush_batch(rows, [name_update] if name_update else [])
 
         result = bulk_manager.conn.execute(
             "SELECT COUNT(*) FROM company_facts WHERE cik = '0000099999'"

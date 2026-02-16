@@ -13,9 +13,10 @@ from typing import Optional
 
 import click
 
-# Standard US stock ticker format: 1-5 uppercase letters
-# Some tickers include dots (e.g., BRK.A, BRK.B)
-TICKER_PATTERN = re.compile(r"^[A-Z]{1,5}(\.[A-Z])?$")
+# Stock ticker format: 1-10 uppercase alphanumeric chars, dots, hyphens
+# Covers standard (AAPL), dot-suffix (BRK.A, BF.B), hyphenated (BRK-B),
+# and numeric tickers. Matches manager._validate_ticker() regex.
+TICKER_PATTERN = re.compile(r"^[A-Z0-9.\-]{1,10}$")
 
 
 def _validate_ticker_format(value: str) -> str:
@@ -34,7 +35,7 @@ def _validate_ticker_format(value: str) -> str:
     if not TICKER_PATTERN.match(value):
         raise ValueError(
             f"Invalid ticker format: '{value}'. "
-            "Expected 1-5 letters (e.g., AAPL, MSFT, BRK.A)"
+            "Expected 1-10 uppercase characters (e.g., AAPL, BRK.A, BRK-B)"
         )
     return value
 
