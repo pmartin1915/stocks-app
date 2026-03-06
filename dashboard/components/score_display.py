@@ -66,15 +66,13 @@ def render_fscore_gauge(score: int | None, show_label: bool = True) -> None:
         interp = "Weak"
 
     if show_label:
-        st.markdown(
-            f"""
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                <span style="font-weight:600">F-Score: {score}/9</span>
-                <span style="color:{color};font-weight:600">{interp}</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        label_html = (
+            f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+            f'<span style="font-weight:600">F-Score: {score}/9</span>'
+            f'<span style="color:{color};font-weight:600">{interp}</span>'
+            f'</div>'
         )
+        st.markdown(label_html, unsafe_allow_html=True)
 
     # Build 9-segment bar
     border_color = get_color("border")
@@ -137,29 +135,25 @@ def render_zscore_gauge(z_score: float | None, zone: str | None) -> None:
 
     # Header with value and zone
     text_on_accent = get_color("text_on_accent")
-    st.markdown(
-        f"""
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <span style="font-weight:600">Z-Score: {z_score:.2f}</span>
-            <span style="background:{zone_color};color:{text_on_accent};padding:2px 8px;
-                        border-radius:12px;font-size:0.8rem;font-weight:600">{zone}</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    zscore_header = (
+        f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+        f'<span style="font-weight:600">Z-Score: {z_score:.2f}</span>'
+        f'<span style="background:{zone_color};color:{text_on_accent};padding:2px 8px;'
+        f'border-radius:12px;font-size:0.8rem;font-weight:600">{zone}</span>'
+        f'</div>'
     )
+    st.markdown(zscore_header, unsafe_allow_html=True)
 
     # Zone labels
     text_secondary = get_color("text_secondary")
-    st.markdown(
-        f"""
-        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:{text_secondary};margin-bottom:2px">
-            <span>Distress</span>
-            <span>Grey Zone</span>
-            <span>Safe</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    zone_labels_html = (
+        f'<div style="display:flex;justify-content:space-between;font-size:0.7rem;color:{text_secondary};margin-bottom:2px">'
+        f'<span>Distress</span>'
+        f'<span>Grey Zone</span>'
+        f'<span>Safe</span>'
+        f'</div>'
     )
+    st.markdown(zone_labels_html, unsafe_allow_html=True)
 
     # Gradient bar with position marker
     bg_primary = get_color("bg_primary")
@@ -168,37 +162,30 @@ def render_zscore_gauge(z_score: float | None, zone: str | None) -> None:
     red = get_semantic_color("red")
     yellow = get_semantic_color("yellow")
     green = get_semantic_color("green")
-    st.markdown(
-        f"""
-        <div style="position:relative;height:20px;border-radius:4px;
-                    background:linear-gradient(to right,
-                        {red} 0%,
-                        {red} {distress_pct}%,
-                        {yellow} {distress_pct}%,
-                        {yellow} {safe_pct}%,
-                        {green} {safe_pct}%,
-                        {green} 100%)">
-            <div style="position:absolute;left:{normalized}%;top:50%;
-                        transform:translate(-50%, -50%);
-                        width:12px;height:12px;background:{bg_primary};
-                        border:2px solid {text_primary};border-radius:50%;
-                        box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    gradient_html = (
+        f'<div style="position:relative;height:20px;border-radius:4px;'
+        f'background:linear-gradient(to right,'
+        f'{red} 0%,{red} {distress_pct}%,'
+        f'{yellow} {distress_pct}%,{yellow} {safe_pct}%,'
+        f'{green} {safe_pct}%,{green} 100%)">'
+        f'<div style="position:absolute;left:{normalized}%;top:50%;'
+        f'transform:translate(-50%, -50%);'
+        f'width:12px;height:12px;background:{bg_primary};'
+        f'border:2px solid {text_primary};border-radius:50%;'
+        f'box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>'
+        f'</div>'
     )
+    st.markdown(gradient_html, unsafe_allow_html=True)
 
     # Threshold labels
-    st.markdown(
-        f"""
-        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:{text_secondary};margin-top:2px">
-            <span>&lt;1.81</span>
-            <span>1.81-2.99</span>
-            <span>&gt;2.99</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    threshold_html = (
+        f'<div style="display:flex;justify-content:space-between;font-size:0.7rem;color:{text_secondary};margin-top:2px">'
+        f'<span>&lt;1.81</span>'
+        f'<span>1.81-2.99</span>'
+        f'<span>&gt;2.99</span>'
+        f'</div>'
     )
+    st.markdown(threshold_html, unsafe_allow_html=True)
 
 
 def render_conviction_gauge(conviction: int | None, max_level: int = 5) -> None:
@@ -237,15 +224,13 @@ def render_conviction_gauge(conviction: int | None, max_level: int = 5) -> None:
     # Stars
     stars = icons.stars_rating(conviction, max_stars=max_level, size=16)
 
-    st.markdown(
-        f"""
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-weight:600">Conviction</span>
-            <span>{stars}</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    conviction_header = (
+        f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+        f'<span style="font-weight:600">Conviction</span>'
+        f'<span>{stars}</span>'
+        f'</div>'
     )
+    st.markdown(conviction_header, unsafe_allow_html=True)
 
     # Progress bar segments
     border_color = get_color("border")
@@ -259,13 +244,11 @@ def render_conviction_gauge(conviction: int | None, max_level: int = 5) -> None:
             f'<div style="flex:1;height:8px;background:{seg_color};border-radius:2px"></div>'
         )
 
-    st.markdown(
-        f"""
-        <div style="display:flex;gap:3px">{" ".join(segments)}</div>
-        <div style="text-align:right;font-size:0.8rem;color:{color};margin-top:2px">{label}</div>
-        """,
-        unsafe_allow_html=True,
+    conv_bar_html = (
+        f'<div style="display:flex;gap:3px">{" ".join(segments)}</div>'
+        f'<div style="text-align:right;font-size:0.8rem;color:{color};margin-top:2px">{label}</div>'
     )
+    st.markdown(conv_bar_html, unsafe_allow_html=True)
 
 
 def render_score_panel(

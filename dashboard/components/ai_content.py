@@ -54,14 +54,12 @@ def render_ai_section(
         cost_badge = icons.badge(f"${cost:.3f}", gray, text_on_accent, "small")
         header_parts.append(cost_badge)
 
-    st.markdown(
-        f"""
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-            {" ".join(header_parts)}
-        </div>
-        """,
-        unsafe_allow_html=True,
+    header_html = (
+        f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">'
+        f'{" ".join(header_parts)}'
+        f'</div>'
     )
+    st.markdown(header_html, unsafe_allow_html=True)
 
     # Timestamp
     if timestamp:
@@ -78,16 +76,14 @@ def render_ai_section(
 
     # Content with styled container
     bg_tertiary = get_color("bg_tertiary")
-    st.markdown(
-        f"""
-        <div style="background:{bg_tertiary};border-left:3px solid {blue};
-                    padding:12px 16px;margin:8px 0;border-radius:0 4px 4px 0;
-                    font-size:0.95rem;line-height:1.6">
-            {_format_content(content)}
-        </div>
-        """,
-        unsafe_allow_html=True,
+    content_html = (
+        f'<div style="background:{bg_tertiary};border-left:3px solid {blue};'
+        f'padding:12px 16px;margin:8px 0;border-radius:0 4px 4px 0;'
+        f'font-size:0.95rem;line-height:1.6">'
+        f'{_format_content(content)}'
+        f'</div>'
     )
+    st.markdown(content_html, unsafe_allow_html=True)
 
     # Feedback buttons
     _render_feedback_buttons(content_hash, content_type, ticker, model, on_feedback)
@@ -145,14 +141,12 @@ def render_human_section(
         author: Author name.
         timestamp: ISO timestamp when content was written.
     """
-    st.markdown(
-        f"""
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span style="font-weight:600">{html_module.escape(author)}</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    author_html = (
+        f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+        f'<span style="font-weight:600">{html_module.escape(author)}</span>'
+        f'</div>'
     )
+    st.markdown(author_html, unsafe_allow_html=True)
 
     if timestamp:
         try:
@@ -169,16 +163,14 @@ def render_human_section(
     # Content with subtle styling (no colored border to distinguish from AI)
     bg_secondary = get_color("bg_secondary")
     border_color = get_color("border")
-    st.markdown(
-        f"""
-        <div style="background:{bg_secondary};border:1px solid {border_color};
-                    padding:12px 16px;margin:8px 0;border-radius:4px;
-                    font-size:0.95rem;line-height:1.6">
-            {_format_content(content)}
-        </div>
-        """,
-        unsafe_allow_html=True,
+    human_content_html = (
+        f'<div style="background:{bg_secondary};border:1px solid {border_color};'
+        f'padding:12px 16px;margin:8px 0;border-radius:4px;'
+        f'font-size:0.95rem;line-height:1.6">'
+        f'{_format_content(content)}'
+        f'</div>'
     )
+    st.markdown(human_content_html, unsafe_allow_html=True)
 
 
 def _render_feedback_buttons(

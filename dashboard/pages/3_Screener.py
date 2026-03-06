@@ -11,7 +11,9 @@ import math
 import pandas as pd
 import streamlit as st
 
-from dashboard.theme import get_semantic_color, get_plotly_theme
+from dashboard.components.page_header import render_page_header
+from dashboard.styles import inject_global_styles, section_header, page_footer
+from dashboard.theme import get_semantic_color, get_plotly_theme, get_plotly_chart_config
 from dashboard.utils.bulk_data import (
     format_last_refresh,
     get_bulk_stats,
@@ -24,9 +26,14 @@ from dashboard.utils.sidebar import render_full_sidebar
 from dashboard.utils.watchlist import add_stock, get_stocks
 
 # Render sidebar (theme toggle, branding, navigation)
-render_full_sidebar()
+render_full_sidebar(current_page="screener")
+inject_global_styles()
 
-st.title("Screener")
+render_page_header(
+    title="Screener",
+    subtitle="Filter stocks by Piotroski F-Score and Altman Z-Score",
+    breadcrumbs=[("Home", "app.py"), ("Screener", "")],
+)
 
 
 def _format_score_note(result: dict) -> str:
@@ -43,8 +50,6 @@ def _format_score_note(result: dict) -> str:
 
     return f"Screen: {f_part}, {z_part}"
 
-
-st.caption("Filter stocks by Piotroski F-Score and Altman Z-Score")
 
 # Data freshness indicator in sidebar
 with st.sidebar:
@@ -87,71 +92,72 @@ Once complete, refresh this page.
     st.stop()
 
 # Filter controls
-st.subheader("Filters")
-
-col1, col2, col3 = st.columns(3)
-
 from asymmetric.core.scoring.constants import FSCORE_MAX, ZSCORE_MFG_GREY_LOW, ZSCORE_MFG_SAFE
 
-with col1:
-    piotroski_min = st.slider(
-        "Minimum F-Score",
-        min_value=0,
-        max_value=FSCORE_MAX,
-        value=5,
-        help=f"Piotroski F-Score measures financial health (0-{FSCORE_MAX}). Higher is better.",
-    )
+with st.container(border=True):
+    section_header("Filters")
 
-with col2:
-    altman_min = st.number_input(
-        "Minimum Z-Score",
-        min_value=-10.0,
-        max_value=50.0,
-        value=ZSCORE_MFG_GREY_LOW,
-        step=0.1,
-        format="%.2f",
-        help=f"Altman Z-Score measures bankruptcy risk. >{ZSCORE_MFG_SAFE} is Safe, <{ZSCORE_MFG_GREY_LOW} is Distress.",
-    )
+    col1, col2, col3 = st.columns(3)
 
-with col3:
-    altman_zone = st.selectbox(
-        "Z-Score Zone",
-        options=["Any", "Safe", "Grey", "Distress"],
-        index=0,
-        help="Filter by Altman zone classification",
-    )
-    # Convert "Any" to None for the query
-    altman_zone_filter = None if altman_zone == "Any" else altman_zone
+    with col1:
+        piotroski_min = st.slider(
+            "Minimum F-Score",
+            min_value=0,
+            max_value=FSCORE_MAX,
+            value=5,
+            help=f"Piotroski F-Score measures financial health (0-{FSCORE_MAX}). Higher is better.",
+        )
+        st.caption("7+ = strong fundamentals")
 
-# Additional controls row
-col4, col5, col6 = st.columns(3)
+    with col2:
+        altman_min = st.number_input(
+            "Minimum Z-Score",
+            min_value=-10.0,
+            max_value=50.0,
+            value=ZSCORE_MFG_GREY_LOW,
+            step=0.1,
+            format="%.2f",
+            help=f"Altman Z-Score measures bankruptcy risk. >{ZSCORE_MFG_SAFE} is Safe, <{ZSCORE_MFG_GREY_LOW} is Distress.",
+        )
+        st.caption("Above 2.99 = safe zone")
 
-with col4:
-    sort_by = st.selectbox(
-        "Sort By",
-        options=["piotroski_score", "altman_z_score", "ticker"],
-        format_func=lambda x: {
-            "piotroski_score": "F-Score",
-            "altman_z_score": "Z-Score",
-            "ticker": "Ticker",
-        }[x],
-        index=0,
-    )
+    with col3:
+        altman_zone = st.selectbox(
+            "Z-Score Zone",
+            options=["Any", "Safe", "Grey", "Distress"],
+            index=0,
+            help="Filter by Altman zone classification",
+        )
+        altman_zone_filter = None if altman_zone == "Any" else altman_zone
 
-with col5:
-    sort_order = st.radio(
-        "Sort Order",
-        options=["desc", "asc"],
-        format_func=lambda x: "Highest First" if x == "desc" else "Lowest First",
-        horizontal=True,
-    )
+    col4, col5, col6 = st.columns(3)
 
-with col6:
-    page_size = st.selectbox(
-        "Per page",
-        options=[25, 50, 100],
-        index=1,
-    )
+    with col4:
+        sort_by = st.selectbox(
+            "Sort By",
+            options=["piotroski_score", "altman_z_score", "ticker"],
+            format_func=lambda x: {
+                "piotroski_score": "F-Score",
+                "altman_z_score": "Z-Score",
+                "ticker": "Ticker",
+            }[x],
+            index=0,
+        )
+
+    with col5:
+        sort_order = st.radio(
+            "Sort Order",
+            options=["desc", "asc"],
+            format_func=lambda x: "Highest First" if x == "desc" else "Lowest First",
+            horizontal=True,
+        )
+
+    with col6:
+        page_size = st.selectbox(
+            "Per page",
+            options=[25, 50, 100],
+            index=1,
+        )
 
 st.divider()
 
@@ -159,11 +165,12 @@ st.divider()
 if "screener_page" not in st.session_state:
     st.session_state.screener_page = 0
 
-# Reset page when filters change
-filter_key = f"{piotroski_min}_{altman_min}_{altman_zone}_{sort_by}_{sort_order}_{page_size}"
-if st.session_state.get("screener_filter_key") != filter_key:
-    st.session_state.screener_filter_key = filter_key
+# Reset page only when actual filter/sort values change (not on unrelated reruns)
+filter_key = f"{piotroski_min}_{altman_min:.2f}_{altman_zone}_{sort_by}_{sort_order}_{page_size}"
+prev_filter_key = st.session_state.get("screener_filter_key")
+if prev_filter_key is not None and prev_filter_key != filter_key:
     st.session_state.screener_page = 0
+st.session_state.screener_filter_key = filter_key
 
 # Fetch all matching results
 try:
@@ -188,17 +195,19 @@ start_idx = current_page * page_size
 end_idx = min(start_idx + page_size, total_results)
 page_results = results[start_idx:end_idx]
 
-# Results header with page info
+# Results section
 col1, col2 = st.columns([3, 1])
 with col1:
     if total_pages > 1:
-        st.subheader(f"Results ({total_results} stocks, page {current_page + 1} of {total_pages})")
+        section_header("Results", count=total_results)
+        st.caption(f"Page {current_page + 1} of {total_pages}")
     else:
-        st.subheader(f"Results ({total_results} stocks)")
+        section_header("Results", count=total_results)
 with col2:
     # Export all results as CSV
     if results:
-        df_export = pd.DataFrame(results)
+        from dashboard.utils.csv_export import sanitize_csv_dataframe
+        df_export = sanitize_csv_dataframe(pd.DataFrame(results))
         csv = df_export.to_csv(index=False)
         st.download_button(
             "Export CSV",
@@ -236,7 +245,8 @@ else:
 
     # Fetch prices for current page's tickers only
     tickers_to_fetch = tuple(df["ticker"].tolist())
-    batch_prices = get_batch_price_data(tickers_to_fetch) if tickers_to_fetch else {}
+    with st.spinner("Fetching live prices..."):
+        batch_prices = get_batch_price_data(tickers_to_fetch) if tickers_to_fetch else {}
 
     # Extract price data into columns
     prices = []
@@ -373,7 +383,7 @@ else:
                         margin=dict(t=50, l=25, r=25, b=25),
                         **get_plotly_theme()
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, config=get_plotly_chart_config())
 
                     st.caption(
                         "**How to read:** Box size = market capitalization. "
@@ -390,7 +400,7 @@ else:
 st.divider()
 
 # Add to Watchlist section
-st.subheader("Add to Watchlist")
+section_header("Add to Watchlist")
 
 if results:
     # Get available tickers (not already on watchlist)
@@ -488,3 +498,5 @@ Predicts bankruptcy probability:
 
 *For non-manufacturing companies, use 2.60 as the Safe threshold.*
 """)
+
+page_footer()

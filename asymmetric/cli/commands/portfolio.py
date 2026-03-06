@@ -186,6 +186,29 @@ def portfolio_summary(ctx: click.Context, as_json: bool) -> None:
     total_style = "green" if summary.realized_pnl_total >= 0 else "red"
     console.print(f"[cyan]Realized P&L (YTD):[/cyan] [{ytd_style}]${summary.realized_pnl_ytd:,.2f}[/{ytd_style}]")
     console.print(f"[cyan]Realized P&L (Total):[/cyan] [{total_style}]${summary.realized_pnl_total:,.2f}[/{total_style}]")
+    console.print()
+
+    # Dividend income
+    if summary.total_dividends > 0:
+        console.print(f"[cyan]Dividend Income:[/cyan] [green]${summary.total_dividends:,.2f}[/green]")
+
+    # External cash flows
+    if summary.total_deposits > 0 or summary.total_withdrawals > 0:
+        console.print()
+        console.print(f"[cyan]Deposits:[/cyan] ${summary.total_deposits:,.2f}")
+        console.print(f"[cyan]Withdrawals:[/cyan] ${summary.total_withdrawals:,.2f}")
+        net_style = "green" if summary.net_cash_flow >= 0 else "red"
+        console.print(f"[cyan]Net Cash Flow:[/cyan] [{net_style}]${summary.net_cash_flow:,.2f}[/{net_style}]")
+
+    # TWR (if snapshots available)
+    twr_result = manager.calculate_twr()
+    if twr_result:
+        console.print()
+        twr_style = "green" if twr_result["twr"] >= 0 else "red"
+        console.print(f"[cyan]Time-Weighted Return:[/cyan] [{twr_style}]{twr_result['twr']:.2f}%[/{twr_style}]")
+        if twr_result["twr_annualized"] is not None:
+            ann_style = "green" if twr_result["twr_annualized"] >= 0 else "red"
+            console.print(f"[cyan]TWR (Annualized):[/cyan] [{ann_style}]{twr_result['twr_annualized']:.2f}%[/{ann_style}]")
 
 
 @portfolio.command("holdings")
@@ -415,3 +438,178 @@ def portfolio_snapshot(ctx: click.Context, auto: bool, force: bool) -> None:
     except Exception as e:
         logger.exception("Unexpected error creating snapshot")
         console.print(f"[red]Unexpected error creating snapshot: {e}[/red]")
+
+
+# --- Cash Flow subgroup ---
+
+
+@portfolio.group("cashflow")
+def portfolio_cashflow() -> None:
+    """Manage portfolio deposits and withdrawals.
+
+    \b
+    Examples:
+        asymmetric portfolio cashflow add --type deposit --amount 5000
+        asymmetric portfolio cashflow add --type withdrawal --amount 1000 --date 2026-01-15
+        asymmetric portfolio cashflow list
+    """
+    pass
+
+
+@portfolio_cashflow.command("add")
+@click.option("--type", "-t", "flow_type", type=click.Choice(["deposit", "withdrawal"]), required=True, help="Cash flow type")
+@click.option("--amount", "-a", type=float, required=True, help="Amount in USD")
+@click.option("--date", "-d", default=None, help="Flow date (YYYY-MM-DD)")
+@click.option("--notes", default="", help="Optional notes")
+@click.pass_context
+def cashflow_add(ctx: click.Context, flow_type: str, amount: float, date: str, notes: str) -> None:
+    """Record a deposit or withdrawal."""
+    console: Console = ctx.obj["console"]
+
+    flow_date = None
+    if date:
+        try:
+            flow_date = datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            console.print("[red]Invalid date format. Use YYYY-MM-DD[/red]")
+            return
+
+    manager = PortfolioManager()
+
+    try:
+        cash_flow = manager.add_cash_flow(
+            amount=amount,
+            flow_type=flow_type,
+            flow_date=flow_date,
+            notes=notes or None,
+        )
+
+        style = "green" if flow_type == "deposit" else "yellow"
+        console.print(f"[{style}]Recorded {flow_type} of ${amount:,.2f}[/{style}]")
+        console.print(f"  Date: {cash_flow.flow_date.strftime('%Y-%m-%d')}")
+        if notes:
+            console.print(f"  Notes: {notes}")
+
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+
+
+@portfolio_cashflow.command("list")
+@click.pass_context
+def cashflow_list(ctx: click.Context) -> None:
+    """Show cash flow history (deposits and withdrawals)."""
+    console: Console = ctx.obj["console"]
+
+    manager = PortfolioManager()
+    flows = manager.get_cash_flows()
+
+    if not flows:
+        console.print("[yellow]No cash flows recorded[/yellow]")
+        return
+
+    table = Table(title="Cash Flow History")
+    table.add_column("Date", style="dim")
+    table.add_column("Type", justify="center")
+    table.add_column("Amount", justify="right")
+    table.add_column("Notes")
+
+    for cf in flows:
+        style = "green" if cf.flow_type == "deposit" else "red"
+        table.add_row(
+            cf.flow_date.strftime("%Y-%m-%d"),
+            Text(cf.flow_type.title(), style=style),
+            f"${float(cf.amount):,.2f}",
+            cf.notes or "",
+        )
+
+    console.print(table)
+
+    # Totals
+    totals = manager.get_total_cash_flows()
+    console.print()
+    console.print(f"[green]Total Deposits:[/green] ${totals['total_deposits']:,.2f}")
+    console.print(f"[red]Total Withdrawals:[/red] ${totals['total_withdrawals']:,.2f}")
+    net_style = "green" if totals["net_cash_flow"] >= 0 else "red"
+    console.print(f"[{net_style}]Net Cash Flow: ${totals['net_cash_flow']:,.2f}[/{net_style}]")
+
+
+# --- Dividend subgroup ---
+
+
+@portfolio.group("dividend")
+def portfolio_dividend() -> None:
+    """Manage dividend income tracking.
+
+    \b
+    Examples:
+        asymmetric portfolio dividend add AAPL --amount 25.50
+        asymmetric portfolio dividend sync AAPL
+        asymmetric portfolio dividend sync
+    """
+    pass
+
+
+@portfolio_dividend.command("add")
+@click.argument("ticker")
+@click.option("--amount", "-a", type=float, required=True, help="Total dividend amount in USD")
+@click.option("--date", "-d", default=None, help="Pay date (YYYY-MM-DD)")
+@click.option("--notes", default="", help="Optional notes")
+@click.pass_context
+def dividend_add(ctx: click.Context, ticker: str, amount: float, date: str, notes: str) -> None:
+    """Record a dividend payment received."""
+    console: Console = ctx.obj["console"]
+    ticker = ticker.upper()
+
+    pay_date = None
+    if date:
+        try:
+            pay_date = datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            console.print("[red]Invalid date format. Use YYYY-MM-DD[/red]")
+            return
+
+    manager = PortfolioManager()
+
+    try:
+        transaction = manager.add_dividend(
+            ticker=ticker,
+            total_amount=amount,
+            pay_date=pay_date,
+            notes=notes or None,
+        )
+
+        console.print(f"[green]Recorded dividend of ${amount:,.2f} from {ticker}[/green]")
+        console.print(f"  Date: {transaction.transaction_date.strftime('%Y-%m-%d')}")
+
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+
+
+@portfolio_dividend.command("sync")
+@click.argument("ticker", required=False)
+@click.pass_context
+def dividend_sync(ctx: click.Context, ticker: str) -> None:
+    """Sync dividend history from yfinance.
+
+    Fetches historical dividends and records any new payments.
+    If no ticker is specified, syncs all open holdings.
+    """
+    console: Console = ctx.obj["console"]
+
+    manager = PortfolioManager()
+
+    with console.status("Syncing dividends from yfinance..."):
+        result = manager.sync_dividends(
+            ticker=ticker.upper() if ticker else None,
+        )
+
+    if result["synced"] > 0:
+        console.print(f"[green]Synced {result['synced']} dividend(s)[/green]")
+        for t in result["tickers"]:
+            console.print(f"  {t}")
+    else:
+        console.print("[yellow]No new dividends found[/yellow]")
+
+    if result["errors"]:
+        for err in result["errors"]:
+            console.print(f"[red]  {err}[/red]")

@@ -17,111 +17,128 @@ class TestSidebarModuleImports:
 
     def test_sidebar_has_render_functions(self):
         """Sidebar module should have all render functions."""
+        from dashboard.utils.sidebar import render_full_sidebar
+
+        assert callable(render_full_sidebar)
+
+    def test_sidebar_has_private_helpers(self):
+        """Sidebar module should have private helper functions."""
         from dashboard.utils.sidebar import (
-            render_branding,
-            render_full_sidebar,
-            render_navigation,
+            _render_branding,
+            _render_footer,
+            _render_navigation,
         )
 
-        assert callable(render_branding)
-        assert callable(render_full_sidebar)
-        assert callable(render_navigation)
+        assert callable(_render_branding)
+        assert callable(_render_footer)
+        assert callable(_render_navigation)
 
 
 class TestRenderBranding:
     """Test branding rendering."""
 
     def test_render_branding_uses_sidebar(self):
-        """render_branding should use st.sidebar for output."""
+        """_render_branding should use st.sidebar for output."""
         mock_st = MagicMock()
 
         with patch("dashboard.utils.sidebar.st", mock_st):
-            from dashboard.utils.sidebar import render_branding
+            from dashboard.utils.sidebar import _render_branding
 
-            render_branding()
+            _render_branding()
 
-            mock_st.sidebar.title.assert_called_once_with("Asymmetric")
-            mock_st.sidebar.caption.assert_called_once_with(
-                "Long-term value investing research"
-            )
+            mock_st.sidebar.markdown.assert_called()
+            # Branding renders HTML with app name
+            call_args = mock_st.sidebar.markdown.call_args_list[0][0][0]
+            assert "Asymmetric" in call_args
 
 
 class TestRenderNavigation:
     """Test navigation rendering."""
 
     def test_render_navigation_uses_sidebar(self):
-        """render_navigation should render nav items to sidebar."""
+        """_render_navigation should render nav items to sidebar."""
         mock_st = MagicMock()
 
         with patch("dashboard.utils.sidebar.st", mock_st):
-            from dashboard.utils.sidebar import render_navigation
+            from dashboard.utils.sidebar import _render_navigation
 
-            render_navigation()
+            _render_navigation(current_page="home")
 
-            mock_st.sidebar.divider.assert_called_once()
-            mock_st.sidebar.markdown.assert_called_once()
-
-            # Verify navigation content includes key pages
-            call_args = mock_st.sidebar.markdown.call_args[0][0]
-            assert "Watchlist" in call_args
-            assert "Screener" in call_args
-            assert "Compare" in call_args
-            assert "Decisions" in call_args
-            assert "Trends" in call_args
-            assert "Alerts" in call_args
-            assert "Portfolio" in call_args
+            # Navigation renders section labels and page links
+            assert mock_st.sidebar.markdown.called
+            assert mock_st.sidebar.page_link.called or mock_st.sidebar.markdown.called
 
 
 class TestRenderFullSidebar:
     """Test full sidebar rendering."""
 
     def test_render_full_sidebar_calls_all_components(self):
-        """render_full_sidebar should call branding and navigation."""
-        mock_st = MagicMock()
-
-        with patch("dashboard.utils.sidebar.st", mock_st):
+        """render_full_sidebar should call branding, navigation, and footer."""
+        with patch(
+            "dashboard.utils.sidebar._render_branding"
+        ) as mock_branding:
             with patch(
-                "dashboard.utils.sidebar.render_branding"
-            ) as mock_branding:
+                "dashboard.utils.sidebar._render_navigation"
+            ) as mock_nav:
                 with patch(
-                    "dashboard.utils.sidebar.render_navigation"
-                ) as mock_nav:
-                    from dashboard.utils import sidebar
+                    "dashboard.utils.sidebar._render_footer"
+                ) as mock_footer:
+                    from dashboard.utils.sidebar import render_full_sidebar
 
-                    sidebar.render_full_sidebar()
+                    render_full_sidebar(current_page="home")
 
                     mock_branding.assert_called_once()
-                    mock_nav.assert_called_once()
+                    mock_nav.assert_called_once_with("home")
+                    mock_footer.assert_called_once()
 
 
-class TestNavigationPages:
-    """Test that all expected pages are in navigation."""
+class TestNavigationStructure:
+    """Test that all expected pages are in navigation structure."""
 
-    def test_all_pages_in_navigation_markdown(self):
-        """All dashboard pages should be listed in navigation."""
+    def test_all_pages_in_nav_groups(self):
+        """All dashboard pages should be listed in _NAV_GROUPS."""
+        from dashboard.utils.sidebar import _NAV_GROUPS
+
+        # Flatten all page labels from nav groups
+        all_labels = []
+        for _group_label, items in _NAV_GROUPS:
+            for label, _path, _icon, _page_id in items:
+                all_labels.append(label)
+
         expected_pages = [
+            "Home",
+            "Portfolio",
             "Watchlist",
             "Screener",
+            "Research",
             "Compare",
             "Decisions",
             "Trends",
             "Alerts",
-            "Portfolio",
         ]
 
-        nav_markdown = """
-**Navigate using the pages above:**
-- **Watchlist** — Your tracked stocks
-- **Screener** — Find opportunities
-- **Compare** — Side-by-side analysis
-- **Decisions** — Investment theses
-- **Trends** — Score trajectories
-- **Alerts** — Threshold monitoring
-- **Portfolio** — Holdings & P&L
-"""
-
         for page in expected_pages:
-            assert page in nav_markdown, f"Missing page: {page}"
+            assert page in all_labels, f"Missing page: {page}"
+
+    def test_nav_groups_have_correct_sections(self):
+        """Navigation should have OVERVIEW, RESEARCH, TRACKING sections."""
+        from dashboard.utils.sidebar import _NAV_GROUPS
+
+        group_labels = [label for label, _items in _NAV_GROUPS]
+        assert "OVERVIEW" in group_labels
+        assert "RESEARCH" in group_labels
+        assert "TRACKING" in group_labels
+
+    def test_nav_page_ids_are_unique(self):
+        """Each page should have a unique page_id."""
+        from dashboard.utils.sidebar import _NAV_GROUPS
+
+        page_ids = []
+        for _group_label, items in _NAV_GROUPS:
+            for _label, _path, _icon, page_id in items:
+                page_ids.append(page_id)
+
+        assert len(page_ids) == len(set(page_ids)), "Duplicate page_ids found"
 
 
 class TestSidebarColorIntegration:

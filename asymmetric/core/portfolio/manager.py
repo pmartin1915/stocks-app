@@ -25,6 +25,7 @@ from sqlmodel import select
 from asymmetric.db.database import get_session, get_stock_by_ticker
 from asymmetric.db.models import Stock, StockScore
 from asymmetric.db.portfolio_models import (
+    CashFlow,
     CorporateAction,
     Holding,
     LotDisposition,
@@ -35,7 +36,10 @@ from asymmetric.db.portfolio_models import (
 
 # Import price data from core (no Streamlit dependency)
 try:
-    from asymmetric.core.data.market_data import fetch_batch_prices
+    from asymmetric.core.data.market_data import (
+        fetch_batch_prices,
+        fetch_dividend_history,
+    )
 
     PRICE_DATA_AVAILABLE = True
 except ImportError:
@@ -92,6 +96,10 @@ class PortfolioSummary:
     position_count: int
     cash_invested: float  # Total cash put in (sum of all buys)
     cash_received: float  # Total cash taken out (sum of all sells)
+    total_deposits: float = 0.0  # Total external deposits
+    total_withdrawals: float = 0.0  # Total external withdrawals
+    net_cash_flow: float = 0.0  # deposits - withdrawals
+    total_dividends: float = 0.0  # Total dividend income received
     missing_prices: list[str] = None  # Tickers where price was unavailable (fell back to cost basis)
 
     def __post_init__(self):
@@ -822,6 +830,21 @@ class PortfolioManager:
             cash_invested = float(sum(t.total_cost for t in buy_transactions))
             cash_received = float(sum(t.total_proceeds for t in sell_transactions))
 
+            # Dividend income total
+            dividend_transactions = session.exec(
+                select(Transaction).where(Transaction.transaction_type == "dividend")
+            ).all()
+            total_dividends = float(sum(t.total_proceeds for t in dividend_transactions))
+
+            # External cash flow totals (deposits/withdrawals)
+            all_flows = session.exec(select(CashFlow)).all()
+            total_deposits = float(sum(
+                cf.amount for cf in all_flows if cf.flow_type == "deposit"
+            ))
+            total_withdrawals = float(sum(
+                cf.amount for cf in all_flows if cf.flow_type == "withdrawal"
+            ))
+
             return PortfolioSummary(
                 total_cost_basis=total_cost_basis,
                 total_market_value=total_market_value,
@@ -832,6 +855,10 @@ class PortfolioManager:
                 position_count=position_count,
                 cash_invested=cash_invested,
                 cash_received=cash_received,
+                total_deposits=total_deposits,
+                total_withdrawals=total_withdrawals,
+                net_cash_flow=total_deposits - total_withdrawals,
+                total_dividends=total_dividends,
                 missing_prices=_missing_prices,
             )
 
@@ -900,6 +927,239 @@ class PortfolioManager:
             )
             results = session.exec(stmt).all()
             return {ticker: float(gain or 0.0) for ticker, gain in results}
+
+    def add_cash_flow(
+        self,
+        amount: Union[int, float, Decimal],
+        flow_type: str,
+        flow_date: Optional[datetime] = None,
+        notes: Optional[str] = None,
+    ) -> CashFlow:
+        """Record a portfolio deposit or withdrawal.
+
+        Args:
+            amount: Cash amount (must be positive)
+            flow_type: "deposit" or "withdrawal"
+            flow_date: Date of cash flow (defaults to now)
+            notes: Optional notes
+
+        Returns:
+            Created CashFlow record
+        """
+        if flow_type not in ("deposit", "withdrawal"):
+            raise ValueError(f"Invalid flow_type: {flow_type!r}. Must be 'deposit' or 'withdrawal'")
+
+        amt = _to_decimal(amount)
+        if amt <= 0:
+            raise ValueError("Amount must be positive")
+
+        now_utc = datetime.now(timezone.utc)
+        cf_date = _to_naive_utc(flow_date) if flow_date else now_utc
+
+        with get_session() as session:
+            cash_flow = CashFlow(
+                flow_type=flow_type,
+                amount=amt,
+                flow_date=cf_date,
+                notes=notes,
+            )
+            session.add(cash_flow)
+            session.flush()
+            session.refresh(cash_flow)
+            session.expunge(cash_flow)
+            return cash_flow
+
+    def get_cash_flows(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> list[CashFlow]:
+        """Retrieve cash flow records within date range.
+
+        Args:
+            start_date: Filter flows >= this date
+            end_date: Filter flows <= this date
+
+        Returns:
+            List of CashFlow records ordered by flow_date ascending.
+        """
+        with get_session() as session:
+            query = select(CashFlow)
+
+            if start_date:
+                query = query.where(CashFlow.flow_date >= start_date)
+            if end_date:
+                query = query.where(CashFlow.flow_date <= end_date)
+
+            query = query.order_by(CashFlow.flow_date.asc())
+            results = session.exec(query).all()
+
+            for cf in results:
+                session.expunge(cf)
+            return list(results)
+
+    def get_total_cash_flows(self) -> dict:
+        """Get aggregate cash flow totals.
+
+        Returns:
+            Dict with total_deposits, total_withdrawals, net_cash_flow (all float).
+        """
+        with get_session() as session:
+            all_flows = session.exec(select(CashFlow)).all()
+
+            total_deposits = float(sum(
+                cf.amount for cf in all_flows if cf.flow_type == "deposit"
+            ))
+            total_withdrawals = float(sum(
+                cf.amount for cf in all_flows if cf.flow_type == "withdrawal"
+            ))
+
+            return {
+                "total_deposits": total_deposits,
+                "total_withdrawals": total_withdrawals,
+                "net_cash_flow": total_deposits - total_withdrawals,
+            }
+
+    def add_dividend(
+        self,
+        ticker: str,
+        total_amount: Union[int, float, Decimal],
+        pay_date: Optional[datetime] = None,
+        notes: Optional[str] = None,
+    ) -> Transaction:
+        """Record a dividend payment received.
+
+        Creates a Transaction with type "dividend". Does NOT affect
+        holding quantity or cost basis — dividends are income, not
+        additional shares.
+
+        Args:
+            ticker: Stock ticker symbol
+            total_amount: Total dividend amount received
+            pay_date: Date dividend was paid (defaults to now)
+            notes: Optional notes
+
+        Returns:
+            Created Transaction record
+        """
+        ticker = _validate_ticker(ticker)
+        amt = _to_decimal(total_amount)
+        if amt <= 0:
+            raise ValueError("Dividend amount must be positive")
+
+        now_utc = datetime.now(timezone.utc)
+        div_date = _to_naive_utc(pay_date) if pay_date else now_utc
+
+        with get_session() as session:
+            stock = get_stock_by_ticker(session, ticker)
+            if not stock:
+                raise ValueError(
+                    f"Stock {ticker} not found. "
+                    f"Run 'asymmetric lookup {ticker}' first to add it to the database."
+                )
+
+            transaction = Transaction(
+                stock_id=stock.id,
+                transaction_type="dividend",
+                transaction_date=div_date,
+                quantity=Decimal("0"),
+                price_per_share=Decimal("0"),
+                fees=Decimal("0"),
+                total_cost=Decimal("0"),
+                total_proceeds=amt,
+                notes=notes,
+            )
+            session.add(transaction)
+            session.flush()
+            session.refresh(transaction)
+            session.expunge(transaction)
+            return transaction
+
+    def sync_dividends(
+        self,
+        ticker: Optional[str] = None,
+    ) -> dict:
+        """Sync dividend history from yfinance for held tickers.
+
+        For each ticker, fetches dividend payments from yfinance and records
+        any new ones that aren't already in the database.
+
+        Args:
+            ticker: Specific ticker to sync. If None, syncs all open holdings.
+
+        Returns:
+            Dict with synced (count), tickers (list), errors (list).
+        """
+        if not PRICE_DATA_AVAILABLE:
+            return {"synced": 0, "tickers": [], "errors": ["yfinance not available"]}
+
+        synced = 0
+        synced_tickers = []
+        errors = []
+
+        # Determine which tickers to sync
+        if ticker:
+            tickers_to_sync = [_validate_ticker(ticker)]
+        else:
+            holdings = self.get_holdings(include_market_data=False)
+            tickers_to_sync = [h.ticker for h in holdings]
+
+        for t in tickers_to_sync:
+            try:
+                # Find last recorded dividend date for this ticker
+                last_div_date = None
+                with get_session() as session:
+                    stock = get_stock_by_ticker(session, t)
+                    if not stock:
+                        errors.append(f"{t}: stock not found")
+                        continue
+
+                    # Get the holding to know share quantity at each dividend date
+                    holding = session.exec(
+                        select(Holding).where(
+                            Holding.stock_id == stock.id,
+                            Holding.status == "open",
+                        )
+                    ).first()
+                    if not holding:
+                        errors.append(f"{t}: no open holding")
+                        continue
+
+                    shares = float(holding.quantity)
+
+                    last_div = session.exec(
+                        select(Transaction)
+                        .where(
+                            Transaction.stock_id == stock.id,
+                            Transaction.transaction_type == "dividend",
+                        )
+                        .order_by(Transaction.transaction_date.desc())
+                        .limit(1)
+                    ).first()
+                    if last_div:
+                        last_div_date = last_div.transaction_date.strftime("%Y-%m-%d")
+
+                # Fetch from yfinance (outside session)
+                div_history = fetch_dividend_history(t, start_date=last_div_date)
+
+                for div in div_history:
+                    total_amount = div["amount_per_share"] * shares
+                    pay_date = datetime.strptime(div["date"], "%Y-%m-%d")
+                    self.add_dividend(
+                        ticker=t,
+                        total_amount=total_amount,
+                        pay_date=pay_date,
+                        notes=f"Auto-synced: ${div['amount_per_share']:.4f}/share",
+                    )
+                    synced += 1
+
+                if div_history:
+                    synced_tickers.append(t)
+
+            except (ValueError, Exception) as e:
+                errors.append(f"{t}: {e}")
+
+        return {"synced": synced, "tickers": synced_tickers, "errors": errors}
 
     def get_weighted_scores(self, holdings: Optional[list] = None) -> WeightedScores:
         """
@@ -986,8 +1246,9 @@ class PortfolioManager:
 
         with get_session() as session:
             # Use timezone-aware datetime - SQLModel will handle storage
+            snapshot_date = datetime.now(timezone.utc)
             snapshot = PortfolioSnapshot(
-                snapshot_date=datetime.now(timezone.utc),
+                snapshot_date=snapshot_date,
                 total_value=_to_decimal(summary.total_market_value),
                 total_cost_basis=_to_decimal(summary.total_cost_basis),
                 unrealized_pnl=_to_decimal(summary.unrealized_pnl),
@@ -998,6 +1259,22 @@ class PortfolioManager:
                 weighted_fscore=weighted.weighted_fscore,
                 weighted_zscore=weighted.weighted_zscore,
             )
+
+            # Populate cash_flow_on_date from CashFlow records for this date
+            day_start = _to_naive_utc(snapshot_date).replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end = day_start.replace(hour=23, minute=59, second=59, microsecond=999999)
+            day_flows = session.exec(
+                select(CashFlow).where(
+                    CashFlow.flow_date >= day_start,
+                    CashFlow.flow_date <= day_end,
+                )
+            ).all()
+            net_flow = sum(
+                cf.amount if cf.flow_type == "deposit" else -cf.amount
+                for cf in day_flows
+            ) if day_flows else Decimal("0")
+            snapshot.cash_flow_on_date = _to_decimal(net_flow)
+
             session.add(snapshot)
             session.flush()
             session.refresh(snapshot)
@@ -1056,6 +1333,78 @@ class PortfolioManager:
 
             return list(results)
 
+    def calculate_twr(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        snapshots: Optional[List[PortfolioSnapshot]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Calculate Time-Weighted Return from snapshots and cash flows.
+
+        TWR separates investment performance from the timing of cash flows
+        (deposits/withdrawals). Each sub-period between cash flow events
+        is chain-linked to produce an overall return.
+
+        Args:
+            start_date: Start of calculation window (default: 1 year ago)
+            end_date: End of calculation window (default: now)
+            snapshots: Pre-fetched snapshots (avoids redundant DB query)
+
+        Returns:
+            Dict with twr, twr_annualized, simple_return, periods, start_date,
+            end_date. Returns None if insufficient data (<2 snapshots).
+        """
+        if snapshots is None:
+            if start_date is None:
+                start_date = _to_naive_utc(datetime.now(timezone.utc)) - timedelta(days=365)
+            snapshots = self.get_snapshots(start_date=start_date, end_date=end_date)
+
+        if not snapshots or len(snapshots) < 2:
+            return None
+
+        values = [float(s.total_value) for s in snapshots]
+        cash_flows = [float(s.cash_flow_on_date) for s in snapshots]
+        dates = [s.snapshot_date for s in snapshots]
+
+        # Chain-link sub-period returns
+        cumulative = 1.0
+        periods = 0
+        for i in range(1, len(values)):
+            v_start = values[i - 1]
+            v_end = values[i]
+            cf = cash_flows[i]  # Cash flow on the ending snapshot date
+
+            # Skip period if start value is zero (e.g., initial deposit)
+            if v_start == 0:
+                continue
+
+            # Sub-period return: (V_end - CF) / V_start - 1
+            sub_return = (v_end - cf) / v_start - 1
+            cumulative *= (1 + sub_return)
+            periods += 1
+
+        twr = (cumulative - 1) * 100  # As percentage
+
+        # Simple return for comparison
+        simple_return = 0.0
+        if values[0] != 0:
+            simple_return = ((values[-1] - values[0]) / values[0]) * 100
+
+        # Annualize if tracking period > 365 days
+        total_days = (dates[-1] - dates[0]).days
+        twr_annualized = None
+        if total_days > 365 and cumulative > 0:
+            twr_annualized = ((cumulative ** (365.0 / total_days)) - 1) * 100
+
+        return {
+            "twr": twr,
+            "twr_annualized": twr_annualized,
+            "simple_return": simple_return,
+            "periods": periods,
+            "start_date": dates[0],
+            "end_date": dates[-1],
+        }
+
     def get_performance_stats(
         self,
         snapshots: Optional[List[PortfolioSnapshot]] = None
@@ -1082,10 +1431,9 @@ class PortfolioManager:
             }
 
         Note:
-            This calculation does NOT account for external cash flows (deposits
-            or withdrawals). A large deposit will appear as a portfolio gain.
-            For portfolios with frequent cash flows, consider implementing
-            Modified Dietz or Time-Weighted Return (TWR) methodology.
+            total_return is a simple return that does NOT account for external
+            cash flows. Use twr (Time-Weighted Return) for cash-flow-adjusted
+            performance measurement.
 
         Example:
             stats = manager.get_performance_stats()
@@ -1159,6 +1507,9 @@ class PortfolioManager:
         best_day = max(daily_returns, key=lambda x: x["return"]) if daily_returns else None
         worst_day = min(daily_returns, key=lambda x: x["return"]) if daily_returns else None
 
+        # Calculate TWR (cash-flow-adjusted return)
+        twr_result = self.calculate_twr(snapshots=snapshots)
+
         return {
             "total_return": total_return,
             "total_return_dollars": total_return_dollars,
@@ -1169,5 +1520,7 @@ class PortfolioManager:
             "volatility": volatility,
             "best_day": best_day,
             "worst_day": worst_day,
-            "days_tracked": len(snapshots)
+            "days_tracked": len(snapshots),
+            "twr": twr_result["twr"] if twr_result else None,
+            "twr_annualized": twr_result["twr_annualized"] if twr_result else None,
         }

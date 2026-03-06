@@ -4,7 +4,7 @@ Avoids redundant DB queries and yfinance API calls on Streamlit page reruns
 (every tab switch, button click, etc. triggers a full page rerun).
 
 TTLs:
-- 60s  for price-dependent data (summary, holdings, scores, realized P&L)
+- 300s for price-dependent data (summary, holdings, scores, realized P&L)
 - 600s for historical snapshots (change infrequently intraday)
 - 3600s for performance stats (expensive math, stable over short periods)
 """
@@ -14,9 +14,32 @@ from datetime import datetime, timedelta
 import streamlit as st
 
 from asymmetric.core.portfolio import PortfolioManager
+from asymmetric.db.database import init_db
 
 
-@st.cache_data(ttl=60)
+@st.cache_resource
+def _ensure_db():
+    """Run init_db() and sync portfolio holdings to watchlist once per process."""
+    init_db()
+    _sync_portfolio_to_watchlist()
+
+
+def _sync_portfolio_to_watchlist() -> None:
+    """Add portfolio tickers to watchlist so they get score tracking."""
+    try:
+        from dashboard.utils.watchlist import add_stock
+        manager = PortfolioManager()
+        holdings = manager.get_holdings(include_market_data=False)
+        for h in holdings:
+            add_stock(h.ticker, note="Portfolio holding (auto-synced)")
+    except Exception:
+        pass  # Non-critical — don't block startup
+
+
+_ensure_db()
+
+
+@st.cache_data(ttl=300)
 def get_cached_portfolio_data():
     """Fetch summary, holdings, weighted scores, and prices in one cached call.
 
@@ -82,7 +105,7 @@ def get_cached_performance_stats(time_range: str):
     return manager.get_performance_stats(snapshots)
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=300)
 def get_cached_realized_pnl():
     """Fetch realized P&L grouped by ticker.
 

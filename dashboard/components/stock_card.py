@@ -49,17 +49,15 @@ def render_price_badge(ticker: str) -> None:
         arrow = "↓"
 
     # Price display with change
-    st.markdown(
-        f"""
-    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-        <span style="font-size:1.25rem;font-weight:700">${price:.2f}</span>
-        <span style="color:{color};font-weight:600;font-size:0.9rem">
-            {arrow} {abs(change):.2f} ({abs(change_pct):.2f}%)
-        </span>
-    </div>
-    """,
-        unsafe_allow_html=True,
+    html = (
+        f'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
+        f'<span style="font-size:1.25rem;font-weight:700">${price:.2f}</span>'
+        f'<span style="color:{color};font-weight:600;font-size:0.9rem">'
+        f'{arrow} {abs(change):.2f} ({abs(change_pct):.2f}%)'
+        f'</span>'
+        f'</div>'
     )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def render_price_with_range(ticker: str) -> None:
@@ -92,22 +90,20 @@ def render_price_with_range(ticker: str) -> None:
         text_secondary = get_color("text_secondary")
         border_color = get_color("border")
 
-        st.markdown(
-            f"""
-        <div style="margin-top:4px">
-            <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:{text_secondary}">
-                <span>${low_52w:.0f}</span>
-                <span>52W Range</span>
-                <span>${high_52w:.0f}</span>
-            </div>
-            <div style="position:relative;height:6px;background:{border_color};border-radius:3px;margin-top:2px">
-                <div style="position:absolute;left:{pct_of_range}%;top:-2px;width:10px;height:10px;
-                            background:{get_semantic_color('blue')};border-radius:50%;transform:translateX(-50%)"></div>
-            </div>
-        </div>
-        """,
-            unsafe_allow_html=True,
+        range_html = (
+            f'<div style="margin-top:4px">'
+            f'<div style="display:flex;justify-content:space-between;font-size:0.75rem;color:{text_secondary}">'
+            f'<span>${low_52w:.0f}</span>'
+            f'<span>52W Range</span>'
+            f'<span>${high_52w:.0f}</span>'
+            f'</div>'
+            f'<div style="position:relative;height:6px;background:{border_color};border-radius:3px;margin-top:2px">'
+            f'<div style="position:absolute;left:{pct_of_range}%;top:-2px;width:10px;height:10px;'
+            f'background:{get_semantic_color("blue")};border-radius:50%;transform:translateX(-50%)"></div>'
+            f'</div>'
+            f'</div>'
         )
+        st.markdown(range_html, unsafe_allow_html=True)
 
 
 def render_sparkline(ticker: str, width: int = 120, height: int = 32) -> str:
@@ -147,13 +143,13 @@ def render_sparkline(ticker: str, width: int = 120, height: int = 32) -> str:
     # Color based on overall trend
     color = get_semantic_color("green") if prices[-1] >= prices[0] else get_semantic_color("red")
 
-    return f"""
-    <svg width="{width}" height="{height}" style="display:inline-block;vertical-align:middle">
-        <polyline points="{' '.join(points)}"
-                  fill="none" stroke="{color}" stroke-width="1.5"
-                  stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    """
+    return (
+        f'<svg width="{width}" height="{height}" style="display:inline-block;vertical-align:middle">'
+        f'<polyline points="{" ".join(points)}"'
+        f' fill="none" stroke="{color}" stroke-width="1.5"'
+        f' stroke-linecap="round" stroke-linejoin="round"/>'
+        f'</svg>'
+    )
 
 
 def render_key_metrics_row(ticker: str) -> None:
@@ -232,15 +228,13 @@ def render_stock_card_header(
     left_html = "".join(header_parts)
     right_html = "".join(right_parts)
 
-    st.markdown(
-        f"""
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <div>{left_html}</div>
-        <div style="display:flex;align-items:center">{right_html}</div>
-    </div>
-    """,
-        unsafe_allow_html=True,
+    header_html = (
+        f'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
+        f'<div>{left_html}</div>'
+        f'<div style="display:flex;align-items:center">{right_html}</div>'
+        f'</div>'
     )
+    st.markdown(header_html, unsafe_allow_html=True)
 
 
 def _decision_status_badge(status: str) -> str:
@@ -372,18 +366,16 @@ def render_stock_card(
 
         status_badge = icons.thesis_status_badge(thesis_status, size="small")
 
-        st.markdown(
-            f"""
-        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px">
-            <span>{status_badge}</span>
-            {source_icon}
-        </div>
-        <div style="font-size:0.9rem;color:{text_secondary};margin-bottom:4px">
-            {thesis_summary_safe}{'...' if len(thesis.get('summary', '')) > 100 else ''}
-        </div>
-        """,
-            unsafe_allow_html=True,
+        thesis_html = (
+            f'<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px">'
+            f'<span>{status_badge}</span>'
+            f'{source_icon}'
+            f'</div>'
+            f'<div style="font-size:0.9rem;color:{text_secondary};margin-bottom:4px">'
+            f'{thesis_summary_safe}{"..." if len(thesis.get("summary", "")) > 100 else ""}'
+            f'</div>'
         )
+        st.markdown(thesis_html, unsafe_allow_html=True)
 
         # Key risk if available
         if bear_case:
@@ -392,15 +384,13 @@ def render_stock_card(
                 # Sanitize user-controlled content to prevent XSS
                 first_risk_safe = sanitize_html(first_risk)
                 yellow_color = get_semantic_color('yellow')
-                st.markdown(
-                    f"""
-                <div style="display:flex;align-items:center;gap:4px;font-size:0.85rem">
-                    <span style="color:{yellow_color}">⚠</span>
-                    <span style="color:{text_secondary}">{first_risk_safe}</span>
-                </div>
-                """,
-                    unsafe_allow_html=True,
+                risk_html = (
+                    f'<div style="display:flex;align-items:center;gap:4px;font-size:0.85rem">'
+                    f'<span style="color:{yellow_color}">&#9888;</span>'
+                    f'<span style="color:{text_secondary}">{first_risk_safe}</span>'
+                    f'</div>'
                 )
+                st.markdown(risk_html, unsafe_allow_html=True)
 
     # Action buttons
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)

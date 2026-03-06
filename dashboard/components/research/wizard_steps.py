@@ -16,41 +16,37 @@ from dashboard.utils.watchlist import get_cached_scores, get_stocks, add_stock
 
 
 def render_step_indicator(current_step: int) -> None:
-    """Render the wizard step indicator."""
-    from dashboard.theme import get_color
+    """Render the wizard step indicator with numbered circles and connecting lines."""
+    steps = ["Research", "Thesis", "Decision"]
 
-    steps = ["1. Research", "2. Thesis", "3. Decision"]
+    parts = []
+    for i, label in enumerate(steps):
+        if i < current_step:
+            state = "completed"
+            circle_content = "\u2713"
+        elif i == current_step:
+            state = "active"
+            circle_content = str(i + 1)
+        else:
+            state = "pending"
+            circle_content = str(i + 1)
 
-    green = get_semantic_color("green")
-    blue = get_semantic_color("blue")
-    gray = get_semantic_color("gray")
-    text_on_accent = get_color("text_on_accent")
-    bg_subtle = get_color("bg_tertiary")
+        parts.append(
+            f'<div class="asym-wizard-step">'
+            f'<span class="circle {state}">{circle_content}</span>'
+            f'<span class="step-label {state}">{label}</span>'
+            f'</div>'
+        )
 
-    cols = st.columns(len(steps))
-    for i, (col, step) in enumerate(zip(cols, steps)):
-        with col:
-            if i < current_step:
-                st.markdown(
-                    f'<div style="text-align:center;padding:8px;background:{green};'
-                    f'color:{text_on_accent};border-radius:8px;font-weight:600">'
-                    f"\u2713 {step}</div>",
-                    unsafe_allow_html=True,
-                )
-            elif i == current_step:
-                st.markdown(
-                    f'<div style="text-align:center;padding:8px;background:{blue};'
-                    f'color:{text_on_accent};border-radius:8px;font-weight:600">'
-                    f"\u25cf {step}</div>",
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.markdown(
-                    f'<div style="text-align:center;padding:8px;background:{bg_subtle};'
-                    f'color:{gray};border-radius:8px">'
-                    f"\u25cb {step}</div>",
-                    unsafe_allow_html=True,
-                )
+        # Add connector between steps (not after last)
+        if i < len(steps) - 1:
+            connector_state = "completed" if i < current_step else "pending"
+            parts.append(f'<div class="asym-wizard-connector {connector_state}"></div>')
+
+    st.markdown(
+        f'<div class="asym-wizard-steps">{"".join(parts)}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def render_research_step() -> None:
@@ -301,18 +297,16 @@ def render_decision_step() -> None:
     summary_safe = sanitize_html(thesis_draft.get("summary", ""))
     bull_safe = sanitize_html(thesis_draft.get("bull_case", "N/A")[:50])
     bear_safe = sanitize_html(thesis_draft.get("bear_case", "N/A")[:50])
-    st.markdown(
-        f"""
-        <div style="background:{bg_card};padding:12px;border-radius:8px;margin-bottom:16px">
-            <div style="color:{gray};font-size:0.9rem">{summary_safe}</div>
-            <div style="margin-top:8px">
-                <span style="color:{green}">Bull:</span> {bull_safe}...
-                <span style="margin-left:16px;color:{red}">Bear:</span> {bear_safe}...
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    thesis_card_html = (
+        f'<div style="background:{bg_card};padding:12px;border-radius:8px;margin-bottom:16px">'
+        f'<div style="color:{gray};font-size:0.9rem">{summary_safe}</div>'
+        f'<div style="margin-top:8px">'
+        f'<span style="color:{green}">Bull:</span> {bull_safe}...'
+        f'<span style="margin-left:16px;color:{red}">Bear:</span> {bear_safe}...'
+        f'</div>'
+        f'</div>'
     )
+    st.markdown(thesis_card_html, unsafe_allow_html=True)
 
     st.divider()
 

@@ -95,7 +95,33 @@ def init_db() -> None:
 
     engine = get_engine()
     SQLModel.metadata.create_all(engine)
+    _run_migrations(engine)
     logger.info("Database tables initialized")
+
+
+def _run_migrations(engine) -> None:
+    """Apply schema migrations for columns added after initial table creation.
+
+    SQLModel.metadata.create_all() only creates new tables — it does not
+    add columns to existing ones.  This helper inspects the live schema
+    and applies any missing ALTER TABLE statements.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+
+    # --- holdings.status (added for soft-delete open/closed) ---
+    if "holdings" in inspector.get_table_names():
+        cols = {c["name"] for c in inspector.get_columns("holdings")}
+        if "status" not in cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE holdings ADD COLUMN status VARCHAR(10) "
+                        "NOT NULL DEFAULT 'open'"
+                    )
+                )
+            logger.info("Migration: added 'status' column to holdings table")
 
 
 @contextmanager

@@ -9,6 +9,8 @@ Or use: python run_dashboard.py
 
 import streamlit as st
 
+from dashboard.components.page_header import render_page_header
+from dashboard.styles import inject_global_styles, metric_card, section_header, empty_state, page_footer
 from dashboard.utils.sidebar import render_full_sidebar
 
 st.set_page_config(
@@ -19,11 +21,14 @@ st.set_page_config(
 )
 
 # Render shared sidebar (theme toggle, branding, navigation)
-render_full_sidebar()
+render_full_sidebar(current_page="home")
+inject_global_styles()
 
 # --- Daily Dashboard ---
-st.title("Asymmetric")
-st.caption("Your portfolio at a glance")
+render_page_header(
+    title="Asymmetric",
+    subtitle="Your portfolio at a glance",
+)
 
 # Try to load portfolio data
 try:
@@ -51,43 +56,50 @@ if has_portfolio:
             "Values shown use cost basis as fallback."
         )
 
-    # Portfolio summary metrics
+    # Portfolio summary metrics — enhanced metric cards
+    pnl_pct = (
+        f"{summary.unrealized_pnl_percent:+.2f}%"
+        if summary.unrealized_pnl_percent is not None
+        else "N/A"
+    )
+    pnl_delta = f"${summary.unrealized_pnl:+,.2f}" if summary.unrealized_pnl != 0 else ""
+    pnl_type = "positive" if summary.unrealized_pnl > 0 else "negative" if summary.unrealized_pnl < 0 else "neutral"
+
+    holdings_with_prices = [h for h in holdings if h.unrealized_pnl is not None]
+    winners = [h for h in holdings_with_prices if h.unrealized_pnl and h.unrealized_pnl > 0]
+    win_rate = (len(winners) / len(holdings_with_prices) * 100) if holdings_with_prices else 0
+
     col1, col2, col3, col4 = st.columns(4)
-
     with col1:
-        st.metric(
-            "Total Value",
-            f"${summary.total_market_value:,.2f}",
-            help="Current market value of all holdings",
+        st.markdown(
+            metric_card("Total Value", f"${summary.total_market_value:,.2f}"),
+            unsafe_allow_html=True,
         )
-
     with col2:
-        pnl_pct = (
-            f"{summary.unrealized_pnl_percent:+.2f}%"
-            if summary.unrealized_pnl_percent is not None
-            else "N/A"
+        st.markdown(
+            metric_card("Unrealized P&L", pnl_pct, delta=pnl_delta, delta_type=pnl_type),
+            unsafe_allow_html=True,
         )
-        delta = f"${summary.unrealized_pnl:,.2f}" if summary.unrealized_pnl != 0 else None
-        st.metric("Unrealized P&L", pnl_pct, delta=delta, help="Gains/losses on current holdings")
-
     with col3:
-        holdings_with_prices = [h for h in holdings if h.unrealized_pnl is not None]
-        winners = [h for h in holdings_with_prices if h.unrealized_pnl and h.unrealized_pnl > 0]
-        win_rate = (len(winners) / len(holdings_with_prices) * 100) if holdings_with_prices else 0
-        st.metric(
-            "Win Rate",
-            f"{win_rate:.0f}%",
-            help=f"{len(winners)} of {len(holdings_with_prices)} positions are profitable",
+        st.markdown(
+            metric_card("Win Rate", f"{win_rate:.0f}%",
+                        delta=f"{len(winners)}/{len(holdings_with_prices)} profitable",
+                        delta_type="neutral"),
+            unsafe_allow_html=True,
         )
-
     with col4:
-        st.metric("Positions", summary.position_count, help="Number of holdings in your portfolio")
+        st.markdown(
+            metric_card("Positions", str(summary.position_count)),
+            unsafe_allow_html=True,
+        )
 
     # Top Movers
     st.divider()
-    st.subheader("Top Movers")
+    section_header("Top Movers", icon_html="")
 
     if holdings_with_prices:
+        from dashboard.theme import SEMANTIC_COLORS
+
         sorted_by_pnl = sorted(
             holdings_with_prices,
             key=lambda h: h.unrealized_pnl_percent or 0,
@@ -103,10 +115,14 @@ if has_portfolio:
             for h in best:
                 pct = h.unrealized_pnl_percent or 0
                 arrow = "\u25b2" if pct > 0 else "\u25bc" if pct < 0 else "\u2014"
-                color = "green" if pct > 0 else "red" if pct < 0 else "gray"
+                color = SEMANTIC_COLORS["green"] if pct > 0 else SEMANTIC_COLORS["red"] if pct < 0 else SEMANTIC_COLORS["gray"]
                 st.markdown(
-                    f":{color}[{arrow} **{h.ticker}** {pct:+.1f}%]"
-                    f" &nbsp; ${h.market_value:,.0f}"
+                    f'<div class="asym-mover-row">'
+                    f'<span class="ticker">{h.ticker}</span>'
+                    f'<span class="pct" style="color:{color}">{arrow} {pct:+.1f}%</span>'
+                    f'<span class="value">${h.market_value:,.0f}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
                 )
 
         with col_worst:
@@ -114,17 +130,21 @@ if has_portfolio:
             for h in worst:
                 pct = h.unrealized_pnl_percent or 0
                 arrow = "\u25b2" if pct > 0 else "\u25bc" if pct < 0 else "\u2014"
-                color = "green" if pct > 0 else "red" if pct < 0 else "gray"
+                color = SEMANTIC_COLORS["green"] if pct > 0 else SEMANTIC_COLORS["red"] if pct < 0 else SEMANTIC_COLORS["gray"]
                 st.markdown(
-                    f":{color}[{arrow} **{h.ticker}** {pct:+.1f}%]"
-                    f" &nbsp; ${h.market_value:,.0f}"
+                    f'<div class="asym-mover-row">'
+                    f'<span class="ticker">{h.ticker}</span>'
+                    f'<span class="pct" style="color:{color}">{arrow} {pct:+.1f}%</span>'
+                    f'<span class="value">${h.market_value:,.0f}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
                 )
     else:
         st.info("Market prices unavailable. Check back shortly.")
 
     # Quick Actions
     st.divider()
-    st.subheader("Quick Actions")
+    section_header("Quick Actions")
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
@@ -142,18 +162,18 @@ if has_portfolio:
 
 else:
     # Onboarding for empty portfolio
-    st.info("No portfolio data yet. Get started by adding your holdings.")
+    from dashboard.components.icons import wallet
 
-    st.markdown("""
-### Getting Started
-1. Go to **Portfolio** in the sidebar and add your first transaction
-2. Or use the CLI: `asymmetric portfolio add AAPL -q 10 -p 150.00`
-3. Come back here to see your dashboard
-""")
+    empty_state(
+        icon_html=wallet(size=48),
+        title="No portfolio data yet",
+        message="Get started by adding your holdings. Go to Portfolio and add your first transaction, "
+                "or use the CLI: asymmetric portfolio add AAPL -q 10 -p 150.00",
+    )
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Go to Portfolio", use_container_width=True):
+        if st.button("Go to Portfolio", use_container_width=True, type="primary"):
             st.switch_page("pages/1_Portfolio.py")
     with col2:
         if st.button("Browse Screener", use_container_width=True):
@@ -175,4 +195,4 @@ with st.expander("Your Workflow"):
 - `asymmetric db precompute` — refresh screener scores
 """)
 
-st.caption("Asymmetric v1.0 — Investment Research Workstation")
+page_footer()

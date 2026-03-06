@@ -13,6 +13,9 @@ SESSION_DEFAULTS = {
     # Theme (shared across all pages)
     "theme": "light",
 
+    # Active page tracking for sidebar highlight
+    "_current_page": "home",
+
     # Watchlist page — confirm_remove is now per-ticker, managed dynamically
 
     # Compare page
@@ -34,6 +37,8 @@ SESSION_DEFAULTS = {
     # Portfolio page
     "pending_buy": None,
     "pending_sell": None,
+    "pending_cash_flow": None,
+    "pending_dividend": None,
 
     # Research page
     "research_ticker": "",
@@ -57,7 +62,7 @@ PAGE_KEYS = {
         "thesis_ticker_filter",
         "editing_thesis_id",
     ],
-    "portfolio": ["theme", "pending_buy", "pending_sell"],
+    "portfolio": ["theme", "pending_buy", "pending_sell", "pending_cash_flow", "pending_dividend"],
     "research": ["theme", "research_ticker", "research_step"],
 }
 

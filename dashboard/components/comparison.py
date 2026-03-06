@@ -256,10 +256,17 @@ def render_best_candidate(results: dict[str, dict]) -> None:
     fscore = piotroski.get("score", "N/A")
     zone = altman.get("zone", "N/A")
 
-    st.success(
-        f"**Best Candidate: {best_ticker}** "
-        f"(F-Score: {fscore}/9, Zone: {zone})"
+    trophy_icon = icons.trophy(size=32)
+    html = (
+        f'<div class="asym-best-candidate">'
+        f'<div class="trophy">{trophy_icon}</div>'
+        f'<div class="info">'
+        f'<div class="ticker">Best Candidate: {best_ticker}</div>'
+        f'<div class="detail">F-Score: {fscore}/9 &nbsp;&middot;&nbsp; Zone: {zone}</div>'
+        f'</div>'
+        f'</div>'
     )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def render_detailed_tabs(results: dict[str, dict]) -> None:

@@ -12,13 +12,20 @@ import streamlit as st
 from asymmetric.core.alerts import AlertChecker
 from asymmetric.db.database import get_session
 from asymmetric.db.models import Stock
+from dashboard.components.page_header import render_page_header
+from dashboard.styles import inject_global_styles, section_header, empty_state, page_footer
+from dashboard.theme import SEMANTIC_COLORS
 from dashboard.utils.sidebar import render_full_sidebar
 
 # Render sidebar (theme toggle, branding, navigation)
-render_full_sidebar()
+render_full_sidebar(current_page="alerts")
+inject_global_styles()
 
-st.title("Alerts")
-st.caption("Monitor score changes and threshold breaches")
+render_page_header(
+    title="Alerts",
+    subtitle="Monitor score changes and threshold breaches",
+    breadcrumbs=[("Home", "app.py"), ("Alerts", "")],
+)
 
 # Initialize checker
 checker = AlertChecker()
@@ -31,7 +38,7 @@ tab_config, tab_history, tab_check = st.tabs([
 ])
 
 with tab_config:
-    st.subheader("Configure Alerts")
+    section_header("Configure Alerts")
 
     # Add new alert form
     with st.form("add_alert_form"):
@@ -115,7 +122,8 @@ with tab_config:
 
     if alerts:
         for alert in alerts:
-            with st.container():
+            severity_class = alert.severity if alert.severity in ("critical", "warning", "info") else "info"
+            with st.container(border=True):
                 col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
 
                 with col1:
@@ -142,13 +150,16 @@ with tab_config:
                     if st.button("Remove", key=f"remove_{alert.id}"):
                         checker.remove_alert(alert.id)
                         st.rerun()
-
-                st.divider()
     else:
-        st.info("No alerts configured. Create one above to get started.")
+        from dashboard.components.icons import bell as bell_icon
+        empty_state(
+            icon_html=bell_icon(size=48),
+            title="No alerts configured",
+            message="Create one above to get started.",
+        )
 
 with tab_history:
-    st.subheader("Alert History")
+    section_header("Alert History")
     st.caption("Record of triggered alerts")
 
     col1, col2 = st.columns(2)
@@ -164,7 +175,7 @@ with tab_history:
 
     if history:
         for h in history:
-            with st.container():
+            with st.container(border=True):
                 col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
 
                 with col1:
@@ -176,9 +187,9 @@ with tab_history:
 
                 with col3:
                     if h.previous_value is not None and h.current_value is not None:
-                        st.caption(f"Value: {h.previous_value:.2f} -> {h.current_value:.2f}")
+                        st.caption(f"Value: {h.previous_value:.2f} \u2192 {h.current_value:.2f}")
                     elif h.previous_zone and h.current_zone:
-                        st.caption(f"Zone: {h.previous_zone} -> {h.current_zone}")
+                        st.caption(f"Zone: {h.previous_zone} \u2192 {h.current_zone}")
 
                 with col4:
                     if h.acknowledged:
@@ -189,13 +200,15 @@ with tab_history:
                         if st.button("Ack", key=f"ack_{h.id}"):
                             checker.acknowledge_alert(h.id, acknowledged_by="dashboard")
                             st.rerun()
-
-                st.divider()
     else:
-        st.info("No alert history yet. Alerts will appear here when triggered.")
+        empty_state(
+            icon_html='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#9ca3af" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+            title="No alert history yet",
+            message="Alerts will appear here when triggered.",
+        )
 
 with tab_check:
-    st.subheader("Check Alerts Now")
+    section_header("Check Alerts Now")
     st.caption("Manually check all active alerts against current scores")
 
     col1, col2 = st.columns([3, 1])
@@ -258,3 +271,5 @@ try:
     st.sidebar.metric("Unacknowledged", len(unack_history))
 except Exception:
     st.sidebar.caption("Unable to load alert summary")
+
+page_footer()

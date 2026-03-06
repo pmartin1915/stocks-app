@@ -5,7 +5,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from dashboard.theme import get_plotly_theme, get_semantic_color
+from dashboard.styles import section_header, metric_card
+from dashboard.theme import get_plotly_theme, get_plotly_chart_config, get_semantic_color
 from dashboard.utils.portfolio_cache import get_cached_realized_pnl
 from dashboard.utils.price_data import get_batch_price_history
 
@@ -68,7 +69,7 @@ def render_performance_tab(holdings: list) -> None:
     Args:
         holdings: List of HoldingDetail objects with market data.
     """
-    st.subheader("Performance Analysis")
+    section_header("Performance Analysis")
     st.caption("Winners, losers, and performance metrics")
 
     if not holdings:
@@ -147,11 +148,11 @@ def render_performance_tab(holdings: list) -> None:
         )
         fig.update_layout(**get_plotly_theme())
         fig.update_yaxis(title="P&L ($)")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config=get_plotly_chart_config())
 
         # Performance Summary
         st.divider()
-        st.markdown("**Performance Summary**")
+        section_header("Performance Summary")
 
         winning_positions = [h for h in holdings_with_prices if h.unrealized_pnl and h.unrealized_pnl > 0]
         losing_positions = [h for h in holdings_with_prices if h.unrealized_pnl and h.unrealized_pnl < 0]
@@ -166,31 +167,35 @@ def render_performance_tab(holdings: list) -> None:
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            st.metric("Win Rate", f"{win_rate:.1f}%", help=f"{len(winning_positions)} winners / {len(holdings_with_prices)} total")
-            st.caption("% of your picks currently in profit")
+            st.markdown(
+                metric_card("Win Rate", f"{win_rate:.1f}%",
+                            delta=f"{len(winning_positions)}/{len(holdings_with_prices)} winners",
+                            delta_type="neutral"),
+                unsafe_allow_html=True,
+            )
         with col2:
-            st.metric(
-                "Avg Winning Position",
-                f"${avg_gain:,.2f}",
-                delta=f"+${avg_gain:,.2f}" if avg_gain > 0 else None,
-                help="Average unrealized gain per winning position",
+            st.markdown(
+                metric_card("Avg Winning Position", f"${avg_gain:,.2f}",
+                            delta=f"+${avg_gain:,.2f}" if avg_gain > 0 else "",
+                            delta_type="positive" if avg_gain > 0 else "neutral"),
+                unsafe_allow_html=True,
             )
         with col3:
-            st.metric(
-                "Avg Losing Position",
-                f"${avg_loss:,.2f}",
-                delta=f"${avg_loss:,.2f}" if avg_loss < 0 else None,
-                help="Average unrealized loss per losing position",
+            st.markdown(
+                metric_card("Avg Losing Position", f"${avg_loss:,.2f}",
+                            delta=f"${avg_loss:,.2f}" if avg_loss < 0 else "",
+                            delta_type="negative" if avg_loss < 0 else "neutral"),
+                unsafe_allow_html=True,
             )
         with col4:
             best_pct = best.unrealized_pnl_percent or 0
             worst_pct = worst.unrealized_pnl_percent or 0
-            st.metric(
-                "Best / Worst",
-                f"{best.ticker} / {worst.ticker}",
-                delta=f"{best_pct:+.1f}% / {worst_pct:+.1f}%",
-                delta_color="off",
-                help=f"Best: {best_pct:+.1f}% | Worst: {worst_pct:+.1f}%",
+            st.markdown(
+                metric_card("Best / Worst",
+                            f"{best.ticker} / {worst.ticker}",
+                            delta=f"{best_pct:+.1f}% / {worst_pct:+.1f}%",
+                            delta_type="neutral"),
+                unsafe_allow_html=True,
             )
 
         # Price History Charts
@@ -262,7 +267,7 @@ def _render_price_history_section(holdings: list) -> None:
         fig = _create_single_chart(holding, history, period)
 
     if fig:
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config=get_plotly_chart_config())
 
 
 def _create_single_chart(holding, history: dict, period: str):

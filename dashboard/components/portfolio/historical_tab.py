@@ -79,6 +79,21 @@ def _render_performance_stats(time_range: str) -> None:
     with col4:
         st.metric("Days Tracked", stats["days_tracked"], help="Number of snapshots in selected range")
 
+    # TWR row (if available)
+    twr = stats.get("twr")
+    twr_ann = stats.get("twr_annualized")
+    if twr is not None:
+        twr_col1, twr_col2, twr_col3, twr_col4 = st.columns(4)
+        with twr_col1:
+            st.metric(
+                "Time-Weighted Return",
+                f"{twr:.2f}%",
+                help="Cash-flow-adjusted return — separates investment performance from deposit/withdrawal timing",
+            )
+        with twr_col2:
+            if twr_ann is not None:
+                st.metric("TWR (Annualized)", f"{twr_ann:.2f}%", help="Time-Weighted Return annualized to a 1-year basis")
+
     col5, col6, col7, col8 = st.columns(4)
 
     with col5:

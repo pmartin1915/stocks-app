@@ -7,7 +7,8 @@ import plotly.express as px
 import streamlit as st
 
 from asymmetric.core.portfolio import PortfolioManager
-from dashboard.theme import get_plotly_theme, get_semantic_color
+from dashboard.styles import section_header
+from dashboard.theme import get_plotly_theme, get_plotly_pie_theme, get_plotly_chart_config, get_semantic_color
 
 
 def render_holdings_tab(
@@ -22,7 +23,7 @@ def render_holdings_tab(
         manager: PortfolioManager instance.
         prices: Pre-fetched market prices dict.
     """
-    st.subheader("Current Holdings")
+    section_header("Current Holdings", count=len(holdings))
 
     if not holdings:
         st.info("No holdings yet. Add a buy transaction to get started.")
@@ -99,7 +100,7 @@ def render_holdings_tab(
     )
 
     # Allocation charts
-    st.subheader("Allocation")
+    section_header("Allocation")
 
     alloc_col1, alloc_col2 = st.columns(2)
 
@@ -111,8 +112,8 @@ def render_holdings_tab(
             title="By Position",
         )
         fig.update_traces(textposition="inside", textinfo="percent+label")
-        fig.update_layout(**get_plotly_theme())
-        st.plotly_chart(fig, use_container_width=True)
+        fig.update_layout(**get_plotly_pie_theme())
+        st.plotly_chart(fig, use_container_width=True, config=get_plotly_chart_config())
 
     with alloc_col2:
         _render_sector_chart(holdings)
@@ -156,5 +157,5 @@ def _render_sector_chart(holdings: list) -> None:
         title="By Sector",
     )
     fig.update_traces(textposition="inside", textinfo="percent+label")
-    fig.update_layout(**get_plotly_theme())
-    st.plotly_chart(fig, use_container_width=True)
+    fig.update_layout(**get_plotly_pie_theme())
+    st.plotly_chart(fig, use_container_width=True, config=get_plotly_chart_config())

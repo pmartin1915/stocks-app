@@ -460,3 +460,146 @@ def medal(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
         '<path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.11"/>',
         color, size, filled=False
     )
+
+
+# --- Navigation / Dashboard Icons ---
+
+def home(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
+    """Home icon for dashboard."""
+    if color is None:
+        color = get_semantic_color("blue")
+    return _svg(
+        '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
+        '<polyline points="9 22 9 12 15 12 15 22"/>',
+        color, size
+    )
+
+
+def bell(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
+    """Bell/notification icon."""
+    if color is None:
+        color = get_semantic_color("gray")
+    return _svg(
+        '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>'
+        '<path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+        color, size
+    )
+
+
+def compare(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
+    """Compare/columns icon."""
+    if color is None:
+        color = get_semantic_color("gray")
+    return _svg(
+        '<line x1="18" y1="20" x2="18" y2="4"/>'
+        '<line x1="12" y1="20" x2="12" y2="10"/>'
+        '<line x1="6" y1="20" x2="6" y2="14"/>'
+        '<line x1="18" y1="4" x2="14" y2="8"/>'
+        '<line x1="18" y1="4" x2="22" y2="8"/>',
+        color, size
+    )
+
+
+def trending_up(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
+    """Trending up icon."""
+    if color is None:
+        color = get_semantic_color("green")
+    return _svg(
+        '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>'
+        '<polyline points="17 6 23 6 23 12"/>',
+        color, size
+    )
+
+
+def trending_down(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
+    """Trending down icon."""
+    if color is None:
+        color = get_semantic_color("red")
+    return _svg(
+        '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/>'
+        '<polyline points="17 18 23 18 23 12"/>',
+        color, size
+    )
+
+
+def wallet(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
+    """Wallet/portfolio icon."""
+    if color is None:
+        color = get_semantic_color("gray")
+    return _svg(
+        '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/>'
+        '<path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>'
+        '<path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>',
+        color, size
+    )
+
+
+def filter_icon(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
+    """Filter/funnel icon."""
+    if color is None:
+        color = get_semantic_color("gray")
+    return _svg(
+        '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+        color, size
+    )
+
+
+def download(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
+    """Download icon."""
+    if color is None:
+        color = get_semantic_color("gray")
+    return _svg(
+        '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>'
+        '<polyline points="7 10 12 15 17 10"/>'
+        '<line x1="12" y1="15" x2="12" y2="3"/>',
+        color, size
+    )
+
+
+def eye(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
+    """Eye/view icon."""
+    if color is None:
+        color = get_semantic_color("gray")
+    return _svg(
+        '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>'
+        '<circle cx="12" cy="12" r="3"/>',
+        color, size
+    )
+
+
+def grid(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
+    """Grid/screener icon."""
+    if color is None:
+        color = get_semantic_color("gray")
+    return _svg(
+        '<rect x="3" y="3" width="7" height="7"/>'
+        '<rect x="14" y="3" width="7" height="7"/>'
+        '<rect x="3" y="14" width="7" height="7"/>'
+        '<rect x="14" y="14" width="7" height="7"/>',
+        color, size
+    )
+
+
+def file_text(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
+    """File/research icon."""
+    if color is None:
+        color = get_semantic_color("gray")
+    return _svg(
+        '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>'
+        '<polyline points="14 2 14 8 20 8"/>'
+        '<line x1="16" y1="13" x2="8" y2="13"/>'
+        '<line x1="16" y1="17" x2="8" y2="17"/>',
+        color, size
+    )
+
+
+def target(color: str | None = None, size: int = DEFAULT_SIZE) -> str:
+    """Target/decisions icon."""
+    if color is None:
+        color = get_semantic_color("gray")
+    return _svg(
+        '<circle cx="12" cy="12" r="10"/>'
+        '<circle cx="12" cy="12" r="6"/>'
+        '<circle cx="12" cy="12" r="2"/>',
+        color, size
+    )

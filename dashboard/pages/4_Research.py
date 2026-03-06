@@ -7,6 +7,7 @@ creating investment theses, and recording decisions.
 
 import streamlit as st
 
+from dashboard.components.page_header import render_page_header
 from dashboard.components.research import (
     render_step_indicator,
     render_research_step,
@@ -15,15 +16,20 @@ from dashboard.components.research import (
     render_review_outcomes_tab,
     render_analytics_tab,
 )
+from dashboard.styles import inject_global_styles, page_footer
 from dashboard.utils.sidebar import render_full_sidebar
 
 st.set_page_config(page_title="Research | Asymmetric", layout="wide")
 
 # Render sidebar (theme toggle, branding, navigation)
-render_full_sidebar()
+render_full_sidebar(current_page="research")
+inject_global_styles()
 
-st.title("Research Wizard")
-st.caption("Research -> Thesis -> Decision workflow")
+render_page_header(
+    title="Research Wizard",
+    subtitle="Research \u2192 Thesis \u2192 Decision workflow",
+    breadcrumbs=[("Home", "app.py"), ("Research", "")],
+)
 
 # Initialize session state for wizard
 if "research_step" not in st.session_state:
@@ -95,3 +101,5 @@ with tab2:
 
 with tab3:
     render_analytics_tab()
+
+page_footer()

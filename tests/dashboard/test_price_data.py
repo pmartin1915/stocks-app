@@ -18,16 +18,19 @@ try:
 except ImportError:
     YFINANCE_INSTALLED = False
 
+# The core module where yf and YFINANCE_AVAILABLE actually live
+CORE_MODULE = "asymmetric.core.data.market_data"
+
 
 class TestGetPriceData:
     """Tests for get_price_data()."""
 
     def test_returns_error_when_yfinance_unavailable(self, monkeypatch):
         """Should return error when yfinance not installed."""
+        import asymmetric.core.data.market_data as market_data
         from dashboard.utils import price_data
 
-        monkeypatch.setattr(price_data, "YFINANCE_AVAILABLE", False)
-        # Clear cache to get fresh result
+        monkeypatch.setattr(market_data, "YFINANCE_AVAILABLE", False)
         price_data.get_price_data.clear()
 
         result = price_data.get_price_data("AAPL")
@@ -38,9 +41,9 @@ class TestGetPriceData:
     @pytest.mark.skipif(not YFINANCE_INSTALLED, reason="yfinance not installed")
     def test_returns_price_data_for_valid_ticker(self, monkeypatch):
         """Should return price data for valid ticker."""
+        import asymmetric.core.data.market_data as market_data
         from dashboard.utils import price_data
 
-        # Create a mock yfinance module
         mock_yf = MagicMock()
         mock_info = {
             "regularMarketPrice": 150.50,
@@ -65,8 +68,8 @@ class TestGetPriceData:
         mock_ticker.info = mock_info
         mock_yf.Ticker.return_value = mock_ticker
 
-        monkeypatch.setattr(price_data, "yf", mock_yf)
-        monkeypatch.setattr(price_data, "YFINANCE_AVAILABLE", True)
+        monkeypatch.setattr(market_data, "yf", mock_yf)
+        monkeypatch.setattr(market_data, "YFINANCE_AVAILABLE", True)
         price_data.get_price_data.clear()
 
         result = price_data.get_price_data("AAPL")
@@ -81,6 +84,7 @@ class TestGetPriceData:
     @pytest.mark.skipif(not YFINANCE_INSTALLED, reason="yfinance not installed")
     def test_returns_error_for_invalid_ticker(self, monkeypatch):
         """Should return error for ticker with no data."""
+        import asymmetric.core.data.market_data as market_data
         from dashboard.utils import price_data
 
         mock_yf = MagicMock()
@@ -88,8 +92,8 @@ class TestGetPriceData:
         mock_ticker.info = {"regularMarketPrice": None}
         mock_yf.Ticker.return_value = mock_ticker
 
-        monkeypatch.setattr(price_data, "yf", mock_yf)
-        monkeypatch.setattr(price_data, "YFINANCE_AVAILABLE", True)
+        monkeypatch.setattr(market_data, "yf", mock_yf)
+        monkeypatch.setattr(market_data, "YFINANCE_AVAILABLE", True)
         price_data.get_price_data.clear()
 
         result = price_data.get_price_data("INVALIDTICKER")
@@ -100,13 +104,14 @@ class TestGetPriceData:
     @pytest.mark.skipif(not YFINANCE_INSTALLED, reason="yfinance not installed")
     def test_returns_error_on_exception(self, monkeypatch):
         """Should return error dict on exception."""
+        import asymmetric.core.data.market_data as market_data
         from dashboard.utils import price_data
 
         mock_yf = MagicMock()
         mock_yf.Ticker.side_effect = Exception("Network error")
 
-        monkeypatch.setattr(price_data, "yf", mock_yf)
-        monkeypatch.setattr(price_data, "YFINANCE_AVAILABLE", True)
+        monkeypatch.setattr(market_data, "yf", mock_yf)
+        monkeypatch.setattr(market_data, "YFINANCE_AVAILABLE", True)
         price_data.get_price_data.clear()
 
         result = price_data.get_price_data("AAPL")
@@ -117,6 +122,7 @@ class TestGetPriceData:
     @pytest.mark.skipif(not YFINANCE_INSTALLED, reason="yfinance not installed")
     def test_includes_fetched_at_timestamp(self, monkeypatch):
         """Should include fetched_at timestamp in result."""
+        import asymmetric.core.data.market_data as market_data
         from dashboard.utils import price_data
 
         mock_yf = MagicMock()
@@ -124,8 +130,8 @@ class TestGetPriceData:
         mock_ticker.info = {"regularMarketPrice": 100.0}
         mock_yf.Ticker.return_value = mock_ticker
 
-        monkeypatch.setattr(price_data, "yf", mock_yf)
-        monkeypatch.setattr(price_data, "YFINANCE_AVAILABLE", True)
+        monkeypatch.setattr(market_data, "yf", mock_yf)
+        monkeypatch.setattr(market_data, "YFINANCE_AVAILABLE", True)
         price_data.get_price_data.clear()
 
         result = price_data.get_price_data("TEST")
@@ -140,9 +146,10 @@ class TestGetPriceHistory:
 
     def test_returns_error_when_yfinance_unavailable(self, monkeypatch):
         """Should return error when yfinance not installed."""
+        import asymmetric.core.data.market_data as market_data
         from dashboard.utils import price_data
 
-        monkeypatch.setattr(price_data, "YFINANCE_AVAILABLE", False)
+        monkeypatch.setattr(market_data, "YFINANCE_AVAILABLE", False)
         price_data.get_price_history.clear()
 
         result = price_data.get_price_history("AAPL")
@@ -153,9 +160,9 @@ class TestGetPriceHistory:
     @pytest.mark.skipif(not YFINANCE_INSTALLED, reason="yfinance not installed")
     def test_returns_history_for_valid_ticker(self, monkeypatch):
         """Should return historical data for valid ticker."""
+        import asymmetric.core.data.market_data as market_data
         from dashboard.utils import price_data
 
-        # Create mock DataFrame with price history
         dates = pd.date_range(end=datetime.now(), periods=30, freq="D")
         mock_hist = pd.DataFrame(
             {
@@ -173,8 +180,8 @@ class TestGetPriceHistory:
         mock_ticker.history.return_value = mock_hist
         mock_yf.Ticker.return_value = mock_ticker
 
-        monkeypatch.setattr(price_data, "yf", mock_yf)
-        monkeypatch.setattr(price_data, "YFINANCE_AVAILABLE", True)
+        monkeypatch.setattr(market_data, "yf", mock_yf)
+        monkeypatch.setattr(market_data, "YFINANCE_AVAILABLE", True)
         price_data.get_price_history.clear()
 
         result = price_data.get_price_history("AAPL", period="1mo")
@@ -189,6 +196,7 @@ class TestGetPriceHistory:
     @pytest.mark.skipif(not YFINANCE_INSTALLED, reason="yfinance not installed")
     def test_returns_error_for_empty_history(self, monkeypatch):
         """Should return error when no history found."""
+        import asymmetric.core.data.market_data as market_data
         from dashboard.utils import price_data
 
         mock_yf = MagicMock()
@@ -196,8 +204,8 @@ class TestGetPriceHistory:
         mock_ticker.history.return_value = pd.DataFrame()
         mock_yf.Ticker.return_value = mock_ticker
 
-        monkeypatch.setattr(price_data, "yf", mock_yf)
-        monkeypatch.setattr(price_data, "YFINANCE_AVAILABLE", True)
+        monkeypatch.setattr(market_data, "yf", mock_yf)
+        monkeypatch.setattr(market_data, "YFINANCE_AVAILABLE", True)
         price_data.get_price_history.clear()
 
         result = price_data.get_price_history("INVALIDTICKER")
@@ -208,16 +216,16 @@ class TestGetPriceHistory:
     @pytest.mark.skipif(not YFINANCE_INSTALLED, reason="yfinance not installed")
     def test_calculates_returns(self, monkeypatch):
         """Should calculate return values."""
+        import asymmetric.core.data.market_data as market_data
         from dashboard.utils import price_data
 
-        # Create mock with enough data for return calculations
         dates = pd.date_range(end=datetime.now(), periods=260, freq="D")
         mock_hist = pd.DataFrame(
             {
                 "Open": [100] * 260,
                 "High": [105] * 260,
                 "Low": [95] * 260,
-                "Close": [100 + i * 0.1 for i in range(260)],  # Steadily increasing
+                "Close": [100 + i * 0.1 for i in range(260)],
                 "Volume": [1000000] * 260,
             },
             index=dates,
@@ -228,8 +236,8 @@ class TestGetPriceHistory:
         mock_ticker.history.return_value = mock_hist
         mock_yf.Ticker.return_value = mock_ticker
 
-        monkeypatch.setattr(price_data, "yf", mock_yf)
-        monkeypatch.setattr(price_data, "YFINANCE_AVAILABLE", True)
+        monkeypatch.setattr(market_data, "yf", mock_yf)
+        monkeypatch.setattr(market_data, "YFINANCE_AVAILABLE", True)
         price_data.get_price_history.clear()
 
         result = price_data.get_price_history("AAPL")

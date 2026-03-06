@@ -15,6 +15,8 @@ from dashboard.components.comparison import (
     render_detailed_tabs,
     render_error_summary,
 )
+from dashboard.components.page_header import render_page_header
+from dashboard.styles import inject_global_styles, section_header, page_footer
 from dashboard.utils.ai_analysis import (
     build_comparison_context,
     estimate_analysis_cost,
@@ -33,10 +35,14 @@ st.set_page_config(page_title="Compare | Asymmetric", layout="wide")
 init_page_state("compare")
 
 # Render sidebar (theme toggle, branding, navigation)
-render_full_sidebar()
+render_full_sidebar(current_page="compare")
+inject_global_styles()
 
-st.title("Compare")
-st.caption("Compare 2-3 stocks side-by-side with AI-powered analysis")
+render_page_header(
+    title="Compare",
+    subtitle="Compare 2-3 stocks side-by-side with AI-powered analysis",
+    breadcrumbs=[("Home", "app.py"), ("Compare", "")],
+)
 
 
 def _fetch_scores(tickers: list[str]) -> dict[str, dict]:
@@ -65,7 +71,7 @@ def _fetch_scores(tickers: list[str]) -> dict[str, dict]:
 
 
 # Stock Selection Section
-st.subheader("Select Stocks to Compare")
+section_header("Select Stocks to Compare")
 
 # Get watchlist for selection
 watchlist_stocks = get_stocks()
@@ -76,10 +82,16 @@ with col1:
     st.markdown("**Option 1: Select from Watchlist**")
 
     if watchlist_stocks:
+        # Only use previous selections that are still in the watchlist
+        sorted_watchlist = sorted(watchlist_stocks)
+        valid_defaults = [
+            t for t in (st.session_state.compare_tickers[:3] if st.session_state.compare_tickers else [])
+            if t in watchlist_stocks
+        ]
         selected_from_watchlist = st.multiselect(
             "Choose up to 3 stocks",
-            options=sorted(watchlist_stocks),
-            default=st.session_state.compare_tickers[:3] if st.session_state.compare_tickers else [],
+            options=sorted_watchlist,
+            default=valid_defaults,
             max_selections=3,
             key="watchlist_select",
             label_visibility="collapsed",
@@ -302,11 +314,11 @@ if st.session_state.compare_results:
 
         with action_cols[1]:
             if st.button("View Screener", use_container_width=True):
-                st.switch_page("pages/2_Screener.py")
+                st.switch_page("pages/3_Screener.py")
 
         with action_cols[2]:
             if st.button("Back to Watchlist", use_container_width=True):
-                st.switch_page("pages/1_Watchlist.py")
+                st.switch_page("pages/2_Watchlist.py")
 
     elif valid_count == 1:
         st.warning("Only one stock has valid data. Add another stock to compare.")
@@ -324,3 +336,5 @@ if not st.session_state.compare_results:
     - **Winner highlighting**: Stars indicate the best value in each metric.
     - **AI Analysis**: Use Quick Compare for fast insights, Deep Analysis for detailed evaluation.
     """)
+
+page_footer()
