@@ -301,6 +301,22 @@ docs(readme): add CLI usage examples
 
 ---
 
+## Agent Workflow
+
+### Delegation (Opus → Sonnet)
+
+**Delegate to Sonnet:** test runs, lint/typecheck, CLI boilerplate, documentation, git operations, simple refactors, DuckDB query writing from clear specs.
+
+**Opus handles directly:** SEC EDGAR rate limiter logic, financial calculation code (Piotroski, Altman, composite scoring), Gemini context caching logic, MCP server protocol changes, architectural decisions, XBRL parsing strategy.
+
+After Sonnet completes any task, Opus must review. If financial calculation code was touched, run `pytest tests/test_scoring.py -v` before accepting.
+
+### Session State
+
+For multi-session work, maintain `ai/STATE.md` (what's done, what's next, open loops) and `ai/DECISIONS.md` (append-only log of settled choices like "use DuckDB over SQLite for bulk XBRL"). Update STATE.md after every significant action. This prevents context loss across sessions.
+
+---
+
 ## Multi-Model Workflow (Claude + Gemini)
 
 This project uses a multi-model orchestration pattern where Claude acts as the "captain" (orchestrator) and Gemini handles execution of routine tasks.
